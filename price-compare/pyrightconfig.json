@@ -1,0 +1,8 @@
+{
+  "venvPath": "C:/Users/Naim/OneDrive/Desktop/PythonProject/price-compare",
+  "venv": ".venv",
+  "extraPaths": [
+    "./app",
+    "C:/Users/Naim/OneDrive/Desktop/PythonProject/price-compare/.venv/Lib/site-packages"
+  ]
+}
