@@ -1,0 +1,10 @@
+﻿fastapi
+uvicorn[standard]
+requests
+beautifulsoup4
+lxml
+pymongo
+pydantic
+pydantic-settings
+apscheduler
+python-dotenv

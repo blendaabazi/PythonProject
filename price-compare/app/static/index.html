@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apple Price Compare KS</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="background"></div>
+  <div class="noise"></div>
+  <header class="shell">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <div class="title">KS Price Compare</div>
+        <div class="subtitle">Apple iPhone · Kosovë</div>
+      </div>
+    </div>
+    <div class="pills">
+      <span class="pill accent">Live from Atlas</span>
+      <span class="pill ghost">FastAPI · BS4</span>
+    </div>
+  </header>
+
+  <main class="shell main-grid">
+    <section class="hero glass">
+      <div>
+        <p class="eyebrow">Price Intelligence</p>
+        <h1>Gjej ofertën më të lirë për iPhone.</h1>
+        <p class="lede">Krahaso çmimet nga Neptun, GjirafaMall, Aztech dhe ShopAz në kohë reale.</p>
+        <div class="controls">
+          <input id="searchInput" type="search" placeholder="Kërko p.sh. “iphone 15 pro max”" />
+          <button id="searchBtn">Kërko</button>
+          <button id="refreshBtn" class="ghost">Rifresko</button>
+          <span id="status" class="status"></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Produkte</div>
+        <div class="stat-value" id="productCount">–</div>
+        <div class="stat-foot">Kliko një produkt për të parë ofertat</div>
+      </div>
+    </section>
+
+    <section class="list glass">
+      <div class="section-head">
+        <h2>iPhone nga providera të ndryshëm</h2>
+      </div>
+      <div id="products" class="product-grid empty">Duke ngarkuar…</div>
+    </section>
+
+    <section class="panel glass">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Oferta</p>
+          <h3 id="selectedProduct">Zgjidh një produkt</h3>
+        </div>
+        <div id="cheapest" class="pill ghost"></div>
+      </div>
+      <div id="prices" class="prices empty">Asnjë produkt i zgjedhur.</div>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    <div>Powered by FastAPI · MongoDB Atlas · BeautifulSoup</div>
+    <div>UI insp. Vercel clean · Made for KS market</div>
+  </footer>
+
+  <script>
+    const productsEl = document.getElementById("products");
+    const pricesEl = document.getElementById("prices");
+    const statusEl = document.getElementById("status");
+    const productCountEl = document.getElementById("productCount");
+    const selectedProductEl = document.getElementById("selectedProduct");
+    const cheapestEl = document.getElementById("cheapest");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+
+    const apiBase = "";
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text || "";
+      statusEl.className = isError ? "status error" : "status";
+    }
+
+    function renderProducts(items) {
+      productsEl.classList.remove("empty");
+      if (!items.length) {
+        productsEl.innerHTML = "<div class='empty-note'>Asnjë produkt.</div>";
+        productCountEl.textContent = "0";
+        return;
+      }
+      productCountEl.textContent = items.length;
+      productsEl.innerHTML = items
+        .map(
+          (p) => `
+          <article class="product-card" data-sku="${p.sku}" data-name="${p.name}">
+            <div class="pill ghost small">SKU</div>
+            <h3>${p.name}</h3>
+            <p class="muted">${p.sku}</p>
+            <button class="ghost full">Shiko ofertat</button>
+          </article>
+        `
+        )
+        .join("");
+      productsEl.querySelectorAll(".product-card").forEach((card) => {
+        card.addEventListener("click", () => {
+          const sku = card.dataset.sku;
+          const name = card.dataset.name;
+          loadPrices(sku, name);
+        });
+      });
+    }
+
+    function renderPrices(name, entries) {
+      selectedProductEl.textContent = name;
+      pricesEl.classList.remove("empty");
+      if (!entries.length) {
+        pricesEl.innerHTML = "<div class='empty-note'>Asnjë ofertë e gjetur.</div>";
+        cheapestEl.textContent = "";
+        return;
+      }
+      const cheapest = entries.reduce((min, e) => (e.price < min.price ? e : min), entries[0]);
+      cheapestEl.textContent = `Nga ${cheapest.store}: ${cheapest.price} ${cheapest.currency}`;
+      pricesEl.innerHTML = `
+        <div class="price-table">
+          <div class="price-row head">
+            <span>Dyqani</span>
+            <span>Çmimi</span>
+            <span>Link</span>
+            <span>Koha</span>
+          </div>
+          ${entries
+            .map(
+              (e) => `
+              <div class="price-row">
+                <span>${e.store}</span>
+                <span>${e.price} ${e.currency}</span>
+                <span><a href="${e.product_url}" target="_blank" rel="noopener noreferrer">Hap</a></span>
+                <span>${new Date(e.timestamp).toLocaleString()}</span>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      `;
+    }
+
+    async function loadProducts(query = "") {
+      setStatus("Duke ngarkuar…");
+      try {
+        const url = `${apiBase}/products${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        renderProducts(data);
+        setStatus(`Gjetëm ${data.length} produkte`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim në listën e produkteve", true);
+        productsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan produktet.</div>";
+      }
+    }
+
+    async function loadPrices(sku, name) {
+      setStatus(`Duke lexuar ofertat për ${name}…`);
+      pricesEl.innerHTML = "<div class='empty-note'>Loading…</div>";
+      try {
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(sku)}/prices`);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        renderPrices(name, data);
+        setStatus(`Gjetëm ${data.length} oferta`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim në ofertat e produktit", true);
+        pricesEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan ofertat.</div>";
+      }
+    }
+
+    searchBtn.addEventListener("click", () => {
+      loadProducts(searchInput.value.trim());
+    });
+
+    refreshBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      loadProducts("");
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        loadProducts(searchInput.value.trim());
+      }
+    });
+
+    // Initial load filtered to iPhone
+    loadProducts("iphone");
+  </script>
+</body>
+</html>
