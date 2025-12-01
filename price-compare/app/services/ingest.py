@@ -3,11 +3,11 @@ from . import SCRAPERS
 from ..database import products_col, stores_col, prices_col
 
 def upsert_store(name: str):
-    stores_col.update_one({"name": name}, {"": {"name": name}}, upsert=True)
+    stores_col.update_one({"name": name}, {"$set": {"name": name}}, upsert=True)
     return stores_col.find_one({"name": name})["_id"]
 
 def upsert_product(item):
-    products_col.update_one({"sku": item["sku"]}, {"": {"name": item["name"]}}, upsert=True)
+    products_col.update_one({"sku": item["sku"]}, {"$set": {"name": item["name"]}}, upsert=True)
     return products_col.find_one({"sku": item["sku"]})["_id"]
 
 def run_all():

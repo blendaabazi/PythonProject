@@ -1,7 +1,7 @@
 import re
 import requests
 from bs4 import BeautifulSoup
-from ..scraper_base import Scraper
+from ..scraper_base import Scraper, slugify_name
 
 
 def parse_price(text: str) -> float:
@@ -46,7 +46,7 @@ class GjirafaMallScraper(Scraper):
                     continue
                 href = link_el.get("href") or ""
                 product_url = href if href.startswith("http") else f"https://gjirafamall.com{href}"
-                sku = card.get("data-productid") or name
+                sku = slugify_name(name)
                 yield {
                     "sku": sku,
                     "name": name,

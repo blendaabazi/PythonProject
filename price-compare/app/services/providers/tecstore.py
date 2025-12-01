@@ -1,6 +1,7 @@
-﻿import requests
+import requests
 from bs4 import BeautifulSoup
-from ..scraper_base import Scraper
+from ..scraper_base import Scraper, slugify_name
+
 
 class TecStoreScraper(Scraper):
     store = "TecStore"
@@ -12,8 +13,8 @@ class TecStoreScraper(Scraper):
         for card in soup.select(".product-card"):  # TODO: update selectors
             name = card.select_one(".title").get_text(strip=True)
             price_raw = card.select_one(".price").get_text(strip=True)
-            price = float(price_raw.replace("€", "").replace(",", "").strip())
-            sku = card.get("data-sku") or name
+            price = float(price_raw.replace("?", "").replace(",", "").strip())
+            sku = slugify_name(name)
             link = card.select_one("a")["href"]
             yield {
                 "sku": sku,
