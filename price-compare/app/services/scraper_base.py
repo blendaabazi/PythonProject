@@ -1,17 +1,7 @@
-import abc
-import re
-from typing import Iterable, Dict, Any
+"""Deprecated compatibility wrapper.
 
+The new Template Method base class lives in services.scraping.base.
+Import BaseScraper/slugify_name from there instead of using this module.
+"""
 
-class Scraper(abc.ABC):
-    store: str
-
-    @abc.abstractmethod
-    def fetch(self) -> Iterable[Dict[str, Any]]:
-        """Yield: sku, name, price, currency, product_url, in_stock"""
-
-
-def slugify_name(name: str) -> str:
-    """Create a stable SKU-like slug from a product name across providers."""
-    slug = re.sub(r"[^a-z0-9]+", "-", name.lower())
-    return slug.strip("-")
+from .scraping.base import BaseScraper as Scraper, slugify_name  # pragma: no cover

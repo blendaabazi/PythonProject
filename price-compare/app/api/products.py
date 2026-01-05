@@ -1,33 +1,70 @@
-from fastapi import APIRouter, Query
-from bson.regex import Regex
-from ..database import products_col, prices_col
+from fastapi import APIRouter, Query, Depends, HTTPException
+from ..dependencies import get_product_repo, get_comparison_service
+from ..schemas.models import ProductResponse, PriceResponse
+from ..domain.models import Product, PricePoint
 
 router = APIRouter(prefix="/products", tags=["products"])
 
-@router.get("/")
-def list_products(q: str | None = Query(None, description="search by name")):
-    filt = {"name": Regex(q, "i")} if q else {}
-    return list(products_col.find(filt, {"_id": 0, "name": 1, "sku": 1}))
 
-@router.get("/{sku}/prices")
-def product_prices(sku: str):
-    product = products_col.find_one({"sku": sku})
+def _to_product_response(product: Product) -> ProductResponse:
+    return ProductResponse(
+        sku=product.sku,
+        name=product.name,
+        category=product.category.value,
+        brand=product.brand,
+    )
+
+
+def _to_price_response(price: PricePoint) -> PriceResponse:
+    return PriceResponse(
+        store=price.store.display(),
+        price=price.price,
+        currency=price.currency,
+        product_url=price.product_url,
+        in_stock=price.in_stock,
+        timestamp=price.timestamp,
+    )
+
+
+@router.get("/", response_model=list[ProductResponse])
+def list_products(
+    q: str | None = Query(None, description="search by name"),
+    product_repo=Depends(get_product_repo),
+):
+    products = product_repo.search(q)
+    return [_to_product_response(p) for p in products]
+
+
+@router.get("/{sku}", response_model=ProductResponse)
+def product_detail(
+    sku: str,
+    product_repo=Depends(get_product_repo),
+):
+    product = product_repo.get_by_sku(sku)
     if not product:
-        return []
-    pipeline = [
-        {"$match": {"product_id": product["_id"]}},
-        {"$lookup": {"from": "stores", "localField": "store_id", "foreignField": "_id", "as": "store"}},
-        {"$unwind": "$store"},
-        {"$sort": {"price": 1}},
-    ]
-    results = list(prices_col.aggregate(pipeline))
-    return [
-        {
-            "store": r["store"]["name"],
-            "price": r["price"],
-            "currency": r["currency"],
-            "product_url": r["product_url"],
-            "timestamp": r["timestamp"],
-        }
-        for r in results
-    ]
+        raise HTTPException(status_code=404, detail="Product not found")
+    return _to_product_response(product)
+
+
+@router.get("/{sku}/prices", response_model=list[PriceResponse])
+def product_prices(
+    sku: str,
+    comparison_service=Depends(get_comparison_service),
+):
+    product, offers, _ = comparison_service.compare(sku)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return [_to_price_response(price) for price in offers]
+
+
+@router.get("/{sku}/history", response_model=list[PriceResponse])
+def product_price_history(
+    sku: str,
+    limit: int = Query(30, ge=1, le=200),
+    comparison_service=Depends(get_comparison_service),
+):
+    product, _, _ = comparison_service.compare(sku)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    history = comparison_service.history(sku, limit=limit)
+    return [_to_price_response(price) for price in history]

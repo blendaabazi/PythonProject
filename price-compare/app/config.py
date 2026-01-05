@@ -16,5 +16,9 @@ class Settings(BaseSettings):
         default=60,
         validation_alias=AliasChoices("SCRAPE_INTERVAL_MIN"),
     )
+    scrape_on_startup: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("SCRAPE_ON_STARTUP"),
+    )
 
 settings = Settings()

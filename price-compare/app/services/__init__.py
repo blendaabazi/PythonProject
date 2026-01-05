@@ -1,15 +1,5 @@
-from .providers.tecstore import TecStoreScraper
-from .providers.neptun import NeptunKSScraper
-from .providers.gjirafamall import GjirafaMallScraper
-from .providers.aztech import AztechScraper
-from .providers.shopaz import ShopAzScraper
-from .providers.gjirafamall_single import GjirafaMallIphone16Scraper
+"""Service-layer exports."""
 
-SCRAPERS = [
-    TecStoreScraper(),
-    NeptunKSScraper(),
-    GjirafaMallScraper(),
-    AztechScraper(),
-    ShopAzScraper(),
-    GjirafaMallIphone16Scraper(),
-]
+from .compare_service import ComparisonService
+from .ingestion_service import IngestionService
+from .scraping.factory import ScraperFactory

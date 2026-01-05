@@ -14,12 +14,12 @@
       <div class="dot"></div>
       <div>
         <div class="title">KS Price Compare</div>
-        <div class="subtitle">Apple iPhone · Kosovë</div>
+        <div class="subtitle">Apple iPhone in Kosove</div>
       </div>
     </div>
     <div class="pills">
       <span class="pill accent">Live from Atlas</span>
-      <span class="pill ghost">FastAPI · BS4</span>
+      <span class="pill ghost">FastAPI + BS4</span>
     </div>
   </header>
 
@@ -27,44 +27,44 @@
     <section class="hero glass">
       <div>
         <p class="eyebrow">Price Intelligence</p>
-        <h1>Gjej ofertën më të lirë për iPhone.</h1>
-        <p class="lede">Krahaso çmimet nga Neptun, GjirafaMall, Aztech dhe ShopAz në kohë reale.</p>
+        <h1>Gjej oferten me te lire per iPhone.</h1>
+        <p class="lede">Krahaso cmimet nga Neptun, GjirafaMall, Aztech dhe ShopAz ne kohe reale.</p>
         <div class="controls">
-          <input id="searchInput" type="search" placeholder="Kërko p.sh. “iphone 15 pro max”" />
-          <button id="searchBtn">Kërko</button>
+          <input id="searchInput" type="search" placeholder='Kerko p.sh. "iphone 15 pro max"' />
+          <button id="searchBtn">Kerko</button>
           <button id="refreshBtn" class="ghost">Rifresko</button>
           <span id="status" class="status"></span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Produkte</div>
-        <div class="stat-value" id="productCount">–</div>
-        <div class="stat-foot">Kliko një produkt për të parë ofertat</div>
+        <div class="stat-value" id="productCount">-</div>
+        <div class="stat-foot">Kliko nje produkt per te pare ofertat</div>
       </div>
     </section>
 
     <section class="list glass">
       <div class="section-head">
-        <h2>iPhone nga providera të ndryshëm</h2>
+        <h2>iPhone nga providera te ndryshem</h2>
       </div>
-      <div id="products" class="product-grid empty">Duke ngarkuar…</div>
+      <div id="products" class="product-grid empty">Duke ngarkuar...</div>
     </section>
 
     <section class="panel glass">
       <div class="section-head">
         <div>
           <p class="eyebrow">Oferta</p>
-          <h3 id="selectedProduct">Zgjidh një produkt</h3>
+          <h3 id="selectedProduct">Zgjidh nje produkt</h3>
         </div>
         <div id="cheapest" class="pill ghost"></div>
       </div>
-      <div id="prices" class="prices empty">Asnjë produkt i zgjedhur.</div>
+      <div id="prices" class="prices empty">Asnje produkt i zgjedhur.</div>
     </section>
   </main>
 
   <footer class="shell footer">
-    <div>Powered by FastAPI · MongoDB Atlas · BeautifulSoup</div>
-    <div>UI insp. Vercel clean · Made for KS market</div>
+    <div>Powered by FastAPI + MongoDB Atlas + BeautifulSoup</div>
+    <div>UI insp. Vercel clean + Made for KS market</div>
   </footer>
 
   <script>
@@ -88,7 +88,7 @@
     function renderProducts(items) {
       productsEl.classList.remove("empty");
       if (!items.length) {
-        productsEl.innerHTML = "<div class='empty-note'>Asnjë produkt.</div>";
+        productsEl.innerHTML = "<div class='empty-note'>Asnje produkt.</div>";
         productCountEl.textContent = "0";
         return;
       }
@@ -114,21 +114,30 @@
       });
     }
 
+    function formatPrice(entry) {
+      const symbol = (entry.currency || "EUR").toUpperCase() === "EUR" ? "€" : entry.currency;
+      const formatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `${formatter.format(entry.price)} ${symbol}`;
+    }
+
     function renderPrices(name, entries) {
       selectedProductEl.textContent = name;
       pricesEl.classList.remove("empty");
       if (!entries.length) {
-        pricesEl.innerHTML = "<div class='empty-note'>Asnjë ofertë e gjetur.</div>";
+        pricesEl.innerHTML = "<div class='empty-note'>Asnje oferte e gjetur.</div>";
         cheapestEl.textContent = "";
         return;
       }
       const cheapest = entries.reduce((min, e) => (e.price < min.price ? e : min), entries[0]);
-      cheapestEl.textContent = `Nga ${cheapest.store}: ${cheapest.price} ${cheapest.currency}`;
+      cheapestEl.textContent = `Nga ${cheapest.store}: ${formatPrice(cheapest)}`;
       pricesEl.innerHTML = `
         <div class="price-table">
           <div class="price-row head">
             <span>Dyqani</span>
-            <span>Çmimi</span>
+            <span>Cmimi</span>
             <span>Link</span>
             <span>Koha</span>
           </div>
@@ -137,7 +146,7 @@
               (e) => `
               <div class="price-row">
                 <span>${e.store}</span>
-                <span>${e.price} ${e.currency}</span>
+                <span>${formatPrice(e)}</span>
                 <span><a href="${e.product_url}" target="_blank" rel="noopener noreferrer">Hap</a></span>
                 <span>${new Date(e.timestamp).toLocaleString()}</span>
               </div>
@@ -149,33 +158,33 @@
     }
 
     async function loadProducts(query = "") {
-      setStatus("Duke ngarkuar…");
+      setStatus("Duke ngarkuar...");
       try {
         const url = `${apiBase}/products${query ? `?q=${encodeURIComponent(query)}` : ""}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
         renderProducts(data);
-        setStatus(`Gjetëm ${data.length} produkte`);
+        setStatus(`Gjetem ${data.length} produkte`);
       } catch (err) {
         console.error(err);
-        setStatus("Gabim në listën e produkteve", true);
+        setStatus("Gabim ne listen e produkteve", true);
         productsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan produktet.</div>";
       }
     }
 
     async function loadPrices(sku, name) {
-      setStatus(`Duke lexuar ofertat për ${name}…`);
-      pricesEl.innerHTML = "<div class='empty-note'>Loading…</div>";
+      setStatus(`Duke lexuar ofertat per ${name}...`);
+      pricesEl.innerHTML = "<div class='empty-note'>Loading...</div>";
       try {
         const res = await fetch(`${apiBase}/products/${encodeURIComponent(sku)}/prices`);
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
         renderPrices(name, data);
-        setStatus(`Gjetëm ${data.length} oferta`);
+        setStatus(`Gjetem ${data.length} oferta`);
       } catch (err) {
         console.error(err);
-        setStatus("Gabim në ofertat e produktit", true);
+        setStatus("Gabim ne ofertat e produktit", true);
         pricesEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan ofertat.</div>";
       }
     }

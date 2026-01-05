@@ -1,26 +1,36 @@
-import requests
-from bs4 import BeautifulSoup
-from ..scraper_base import Scraper, slugify_name
+from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name
+from ...domain.enums import ShopName, ProductCategory
 
 
-class TecStoreScraper(Scraper):
-    store = "TecStore"
+class TecStoreScraper(BaseScraper):
+    """Placeholder scraper showing how to onboard a new provider."""
 
-    def fetch(self):
-        url = "https://exampletecstore.com/laptops"  # TODO: set real URL
-        html = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"}).text
-        soup = BeautifulSoup(html, "lxml")
-        for card in soup.select(".product-card"):  # TODO: update selectors
-            name = card.select_one(".title").get_text(strip=True)
-            price_raw = card.select_one(".price").get_text(strip=True)
-            price = float(price_raw.replace("?", "").replace(",", "").strip())
+    store = ShopName.TECSTORE
+    category = ProductCategory.LAPTOP
+
+    def base_url(self) -> str:
+        return "https://exampletecstore.com/laptops"  # TODO: replace with production URL
+
+    def parse_products(self, soup, url):
+        for card in soup.select(".product-card"):  # TODO: update selectors for real site
+            name_el = card.select_one(".title")
+            price_el = card.select_one(".price")
+            link_el = card.select_one("a")
+            if not (name_el and price_el and link_el):
+                continue
+            name = name_el.get_text(strip=True)
+            try:
+                price = parse_price(price_el.get_text(strip=True))
+            except Exception:
+                continue
             sku = slugify_name(name)
-            link = card.select_one("a")["href"]
-            yield {
-                "sku": sku,
-                "name": name,
-                "price": price,
-                "currency": "EUR",
-                "product_url": link if link.startswith("http") else f"https://exampletecstore.com{link}",
-                "in_stock": "out of stock" not in card.get_text(" ").lower(),
-            }
+            link = link_el["href"]
+            yield ScrapedItem(
+                sku=sku,
+                name=name,
+                price=price,
+                currency="EUR",
+                product_url=link if link.startswith("http") else f"https://exampletecstore.com{link}",
+                in_stock="out of stock" not in card.get_text(" ").lower(),
+                brand=None,
+            )
