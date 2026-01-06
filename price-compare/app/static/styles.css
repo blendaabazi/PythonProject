@@ -274,6 +274,53 @@ button.full {
   transition: border-color 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
 }
 
+.card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.store-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+}
+
+.store-badge.gjirafa {
+  background: #e8f0fe;
+  border-color: #c7d2fe;
+  color: #1e3a8a;
+}
+
+.store-badge.neptun {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.store-badge.both {
+  background: #fff4e6;
+  border-color: #fddfb0;
+  color: #9a3412;
+}
+
+.store-badge.other {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #4b5563;
+}
+
+.store-badge.empty {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
 .product-card:hover {
   border-color: var(--accent);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
@@ -289,6 +336,62 @@ button.full {
   color: var(--muted);
   font-size: 13px;
   margin: 0 0 10px;
+}
+
+.price-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.price-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: #111827;
+}
+
+.price-chip.gjirafamall {
+  background: #e8f0fe;
+  border-color: #c7d2fe;
+  color: #1e3a8a;
+}
+
+.price-chip.neptun {
+  background: #ecfdf3;
+  border-color: #bbf7d0;
+  color: #166534;
+}
+
+.price-chip.aztech {
+  background: #fef3c7;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.price-chip.shopaz {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.price-chip.tecstore {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+  color: #075985;
+}
+
+.price-chip.empty {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
 }
 
 .empty-note {

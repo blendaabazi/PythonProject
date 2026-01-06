@@ -51,3 +51,11 @@ class PriceRepository(abc.ABC):
     @abc.abstractmethod
     def cheapest_by_category(self, category: str, limit: int = 10) -> List[PricePoint]:
         """Return cheapest price per product for a category."""
+
+    @abc.abstractmethod
+    def latest_stores_for_products(self, product_skus: List[str]) -> dict[str, List[str]]:
+        """Return store codes that have prices for each product sku."""
+
+    @abc.abstractmethod
+    def latest_prices_for_products(self, product_skus: List[str]) -> dict[str, List[PricePoint]]:
+        """Return latest price points per store for each product sku."""

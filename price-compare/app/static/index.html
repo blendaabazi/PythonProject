@@ -39,7 +39,7 @@
       <div class="stat-card">
         <div class="stat-label">Produkte</div>
         <div class="stat-value" id="productCount">-</div>
-        <div class="stat-foot">Kliko nje produkt per te pare ofertat</div>
+        <div class="stat-foot">Kliko produktin per te hapur oferten me te lire</div>
       </div>
     </section>
 
@@ -79,6 +79,17 @@
     const refreshBtn = document.getElementById("refreshBtn");
 
     const apiBase = "";
+    const storeNames = {
+      gjirafamall: "Gjirafa",
+      neptun: "Neptun",
+      aztech: "Aztech",
+      shopaz: "ShopAz",
+      tecstore: "TecStore",
+    };
+
+    function storeLabelFromCode(code) {
+      return storeNames[code] || code || "Unknown";
+    }
 
     function setStatus(text, isError = false) {
       statusEl.textContent = text || "";
@@ -93,24 +104,67 @@
         return;
       }
       productCountEl.textContent = items.length;
+      const storeLabel = (stores) => {
+        const list = Array.isArray(stores) ? stores : [];
+        const hasGjirafa = list.includes("gjirafamall");
+        const hasNeptun = list.includes("neptun");
+        if (hasGjirafa && hasNeptun) {
+          return { label: "Gjirafa + Neptun", cls: "store-badge both" };
+        }
+        if (hasGjirafa) {
+          return { label: "Gjirafa", cls: "store-badge gjirafa" };
+        }
+        if (hasNeptun) {
+          return { label: "Neptun", cls: "store-badge neptun" };
+        }
+        if (list.length) {
+          return { label: "Other shops", cls: "store-badge other" };
+        }
+        return { label: "No offers", cls: "store-badge empty" };
+      };
       productsEl.innerHTML = items
-        .map(
-          (p) => `
+        .map((p) => {
+          const badge = storeLabel(p.stores);
+          const prices = Array.isArray(p.latest_prices) ? p.latest_prices : [];
+          const priceHtml = prices.length
+            ? prices
+                .map(
+                  (entry) =>
+                    `<span class="price-chip ${entry.store}">${storeLabelFromCode(entry.store)}: ${formatPrice(
+                      entry
+                    )}</span>`
+                )
+                .join("")
+            : "<span class='price-chip empty'>No prices</span>";
+          return `
           <article class="product-card" data-sku="${p.sku}" data-name="${p.name}">
-            <div class="pill ghost small">SKU</div>
+            <div class="card-meta">
+              <div class="pill ghost small">SKU</div>
+              <div class="${badge.cls}">${badge.label}</div>
+            </div>
             <h3>${p.name}</h3>
             <p class="muted">${p.sku}</p>
+            <div class="price-chips">${priceHtml}</div>
             <button class="ghost full">Shiko ofertat</button>
           </article>
-        `
-        )
+        `;
+        })
         .join("");
       productsEl.querySelectorAll(".product-card").forEach((card) => {
         card.addEventListener("click", () => {
           const sku = card.dataset.sku;
           const name = card.dataset.name;
-          loadPrices(sku, name);
+          openCheapestOffer(sku, name);
         });
+        const button = card.querySelector("button");
+        if (button) {
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const sku = card.dataset.sku;
+            const name = card.dataset.name;
+            loadPrices(sku, name);
+          });
+        }
       });
     }
 
@@ -186,6 +240,24 @@
         console.error(err);
         setStatus("Gabim ne ofertat e produktit", true);
         pricesEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan ofertat.</div>";
+      }
+    }
+
+    async function openCheapestOffer(sku, name) {
+      setStatus(`Duke hapur oferten me te lire per ${name}...`);
+      try {
+        const res = await fetch(`${apiBase}/products/${encodeURIComponent(sku)}/prices`);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        if (!data.length || !data[0].product_url) {
+          setStatus("Nuk u gjet link per produktin", true);
+          return;
+        }
+        window.open(data[0].product_url, "_blank", "noopener");
+        setStatus(`Hapur oferta nga ${data[0].store || "dyqan"}`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim ne hapjen e linkut", true);
       }
     }
 

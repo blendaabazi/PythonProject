@@ -1,17 +1,23 @@
 from fastapi import APIRouter, Query, Depends, HTTPException
-from ..dependencies import get_product_repo, get_comparison_service
-from ..schemas.models import ProductResponse, PriceResponse
+from ..dependencies import get_product_repo, get_comparison_service, get_price_repo
+from ..schemas.models import ProductResponse, PriceResponse, StorePriceSummary
 from ..domain.models import Product, PricePoint
 
 router = APIRouter(prefix="/products", tags=["products"])
 
 
-def _to_product_response(product: Product) -> ProductResponse:
+def _to_product_response(
+    product: Product,
+    stores: list[str] | None = None,
+    latest_prices: list[StorePriceSummary] | None = None,
+) -> ProductResponse:
     return ProductResponse(
         sku=product.sku,
         name=product.name,
         category=product.category.value,
         brand=product.brand,
+        stores=stores,
+        latest_prices=latest_prices,
     )
 
 
@@ -30,9 +36,22 @@ def _to_price_response(price: PricePoint) -> PriceResponse:
 def list_products(
     q: str | None = Query(None, description="search by name"),
     product_repo=Depends(get_product_repo),
+    price_repo=Depends(get_price_repo),
 ):
     products = product_repo.search(q)
-    return [_to_product_response(p) for p in products]
+    if not products:
+        return []
+    offer_map = price_repo.latest_prices_for_products([p.sku for p in products])
+    responses = []
+    for product in products:
+        offers = offer_map.get(product.sku, [])
+        store_codes = [offer.store.value for offer in offers]
+        latest_prices = [
+            StorePriceSummary(store=offer.store.value, price=offer.price, currency=offer.currency)
+            for offer in offers
+        ]
+        responses.append(_to_product_response(product, store_codes, latest_prices))
+    return responses
 
 
 @router.get("/{sku}", response_model=ProductResponse)

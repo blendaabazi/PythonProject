@@ -192,3 +192,31 @@ class MongoPriceRepository(PriceRepository):
         ]
         docs = list(self.collection.aggregate(pipeline))
         return [self._doc_to_price(doc) for doc in docs]
+
+    def latest_stores_for_products(self, product_skus: List[str]) -> dict[str, List[str]]:
+        if not product_skus:
+            return {}
+        pipeline = [
+            {"$match": {"product_sku": {"$in": product_skus}}},
+            {"$group": {"_id": "$product_sku", "stores": {"$addToSet": "$store_code"}}},
+        ]
+        docs = list(self.collection.aggregate(pipeline))
+        return {doc["_id"]: sorted(doc.get("stores", [])) for doc in docs}
+
+    def latest_prices_for_products(self, product_skus: List[str]) -> dict[str, List[PricePoint]]:
+        if not product_skus:
+            return {}
+        pipeline = [
+            {"$match": {"product_sku": {"$in": product_skus}}},
+            {"$sort": {"timestamp": -1}},
+            {"$group": {"_id": {"sku": "$product_sku", "store": "$store_code"}, "latest": {"$first": "$$ROOT"}}},
+            {"$replaceRoot": {"newRoot": "$latest"}},
+            {"$group": {"_id": "$product_sku", "offers": {"$push": "$$ROOT"}}},
+        ]
+        docs = list(self.collection.aggregate(pipeline))
+        result: dict[str, List[PricePoint]] = {}
+        for doc in docs:
+            offers = [self._doc_to_price(item) for item in doc.get("offers", [])]
+            offers.sort(key=lambda p: p.price)
+            result[doc["_id"]] = offers
+        return result

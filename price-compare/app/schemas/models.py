@@ -3,11 +3,19 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
+class StorePriceSummary(BaseModel):
+    store: str
+    price: float
+    currency: str
+
+
 class ProductResponse(BaseModel):
     sku: str
     name: str
     category: str = Field(description="Product category identifier")
     brand: Optional[str] = None
+    stores: Optional[List[str]] = None
+    latest_prices: Optional[List[StorePriceSummary]] = None
 
 
 class ShopResponse(BaseModel):

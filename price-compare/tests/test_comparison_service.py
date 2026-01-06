@@ -44,6 +44,31 @@ class InMemoryPriceRepo(PriceRepository):
     def cheapest_by_category(self, category: str, limit: int = 10) -> List[PricePoint]:
         return self.data[:limit]
 
+    def latest_stores_for_products(self, product_skus: List[str]) -> dict[str, List[str]]:
+        wanted = set(product_skus)
+        store_map: dict[str, set[str]] = {sku: set() for sku in wanted}
+        for price in self.data:
+            if price.product_sku in wanted:
+                store_map[price.product_sku].add(price.store.value)
+        return {sku: sorted(stores) for sku, stores in store_map.items() if stores}
+
+    def latest_prices_for_products(self, product_skus: List[str]) -> dict[str, List[PricePoint]]:
+        wanted = set(product_skus)
+        latest: dict[tuple[str, str], PricePoint] = {}
+        for price in sorted(self.data, key=lambda p: p.timestamp, reverse=True):
+            if price.product_sku not in wanted:
+                continue
+            key = (price.product_sku, price.store.value)
+            if key in latest:
+                continue
+            latest[key] = price
+        result: dict[str, List[PricePoint]] = {}
+        for (sku, _), price in latest.items():
+            result.setdefault(sku, []).append(price)
+        for prices in result.values():
+            prices.sort(key=lambda p: p.price)
+        return result
+
 
 def test_compare_returns_cheapest_store():
     prod_repo = InMemoryProductRepo()
