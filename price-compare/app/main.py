@@ -47,6 +47,12 @@ def root():
     return FileResponse(index_file)
 
 
+@app.get("/compare-ui")
+def compare_ui():
+    compare_file = STATIC_DIR / "compare.html"
+    return FileResponse(compare_file)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

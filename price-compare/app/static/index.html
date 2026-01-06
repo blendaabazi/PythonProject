@@ -19,6 +19,7 @@
     </div>
     <div class="pills">
       <span class="pill accent">Live from Atlas</span>
+      <a class="pill ghost" href="/compare-ui">Compare view</a>
       <span class="pill ghost">FastAPI + BS4</span>
     </div>
   </header>
@@ -33,13 +34,15 @@
           <input id="searchInput" type="search" placeholder='Kerko p.sh. "iphone 15 pro max"' />
           <button id="searchBtn">Kerko</button>
           <button id="refreshBtn" class="ghost">Rifresko</button>
+          <button id="compareModeBtn" class="ghost compare-toggle">Krahaso</button>
+          <button id="compareSelectedBtn" class="ghost compare-selected" disabled>Krahaso te zgjedhurit</button>
           <span id="status" class="status"></span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Produkte</div>
         <div class="stat-value" id="productCount">-</div>
-        <div class="stat-foot">Kliko produktin per te hapur oferten me te lire</div>
+        <div class="stat-foot">Aktivizo "Krahaso" dhe zgjidh disa produkte</div>
       </div>
     </section>
 
@@ -77,6 +80,10 @@
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
     const refreshBtn = document.getElementById("refreshBtn");
+    const compareModeBtn = document.getElementById("compareModeBtn");
+    const compareSelectedBtn = document.getElementById("compareSelectedBtn");
+    let compareMode = false;
+    const selectedSkus = new Set();
 
     const apiBase = "";
     const storeNames = {
@@ -145,20 +152,29 @@
             <h3>${p.name}</h3>
             <p class="muted">${p.sku}</p>
             <div class="price-chips">${priceHtml}</div>
-            <button class="ghost full">Shiko ofertat</button>
+            <div class="card-actions">
+              <button class="ghost full view-offers">Shiko ofertat</button>
+            </div>
           </article>
         `;
         })
         .join("");
       productsEl.querySelectorAll(".product-card").forEach((card) => {
+        const sku = card.dataset.sku;
+        if (compareMode && selectedSkus.has(sku)) {
+          card.classList.add("selected");
+        }
         card.addEventListener("click", () => {
-          const sku = card.dataset.sku;
           const name = card.dataset.name;
-          openCheapestOffer(sku, name);
+          if (compareMode) {
+            toggleSelection(card);
+            return;
+          }
+          loadPrices(sku, name);
         });
-        const button = card.querySelector("button");
-        if (button) {
-          button.addEventListener("click", (event) => {
+        const viewButton = card.querySelector(".view-offers");
+        if (viewButton) {
+          viewButton.addEventListener("click", (event) => {
             event.stopPropagation();
             const sku = card.dataset.sku;
             const name = card.dataset.name;
@@ -243,23 +259,68 @@
       }
     }
 
-    async function openCheapestOffer(sku, name) {
-      setStatus(`Duke hapur oferten me te lire per ${name}...`);
-      try {
-        const res = await fetch(`${apiBase}/products/${encodeURIComponent(sku)}/prices`);
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-        if (!data.length || !data[0].product_url) {
-          setStatus("Nuk u gjet link per produktin", true);
-          return;
-        }
-        window.open(data[0].product_url, "_blank", "noopener");
-        setStatus(`Hapur oferta nga ${data[0].store || "dyqan"}`);
-      } catch (err) {
-        console.error(err);
-        setStatus("Gabim ne hapjen e linkut", true);
+    function openCompare(sku, name) {
+      setStatus(`Duke hapur krahasimin per ${name}...`);
+      window.location.href = `/compare-ui?sku=${encodeURIComponent(sku)}`;
+    }
+
+    function openCompareSelected() {
+      if (!selectedSkus.size) {
+        setStatus("Zgjidh te pakten nje produkt", true);
+        return;
+      }
+      const list = Array.from(selectedSkus);
+      window.location.href = `/compare-ui?skus=${encodeURIComponent(list.join(","))}`;
+    }
+
+    function toggleSelection(card) {
+      const sku = card.dataset.sku;
+      if (selectedSkus.has(sku)) {
+        selectedSkus.delete(sku);
+        card.classList.remove("selected");
+      } else {
+        selectedSkus.add(sku);
+        card.classList.add("selected");
+      }
+      updateSelectionStatus();
+    }
+
+    function clearSelection() {
+      selectedSkus.clear();
+      document.querySelectorAll(".product-card.selected").forEach((card) => {
+        card.classList.remove("selected");
+      });
+      updateSelectionStatus();
+    }
+
+    function updateSelectionStatus() {
+      const count = selectedSkus.size;
+      compareSelectedBtn.disabled = count === 0;
+      compareSelectedBtn.textContent = count ? `Krahaso (${count})` : "Krahaso te zgjedhurit";
+      if (compareMode) {
+        setStatus(count ? `Zgjedhur ${count} produkte` : "Zgjidh produktet per krahasim");
       }
     }
+
+    function setCompareMode(active) {
+      compareMode = active;
+      compareModeBtn.classList.toggle("active", active);
+      document.body.classList.toggle("compare-mode", active);
+      if (active) {
+        updateSelectionStatus();
+      } else {
+        clearSelection();
+        setStatus("");
+      }
+    }
+
+    compareModeBtn.addEventListener("click", () => {
+      setCompareMode(!compareMode);
+    });
+
+    compareSelectedBtn.addEventListener("click", () => {
+      openCompareSelected();
+    });
 
     searchBtn.addEventListener("click", () => {
       loadProducts(searchInput.value.trim());

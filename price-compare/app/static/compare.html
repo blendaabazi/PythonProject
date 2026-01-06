@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KS Price Compare - Gjirafa vs Neptun</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="background"></div>
+  <div class="noise"></div>
+  <header class="shell">
+    <div class="brand">
+      <div class="dot"></div>
+      <div>
+        <div class="title">KS Price Compare</div>
+        <div class="subtitle">Gjirafa + Neptun Compare</div>
+      </div>
+    </div>
+    <div class="pills">
+      <a class="pill ghost" href="/">Overview</a>
+      <span class="pill accent">Compare view</span>
+      <span class="pill ghost">Lowest price first</span>
+    </div>
+  </header>
+
+  <main class="shell main-grid">
+    <section class="hero glass">
+      <div>
+        <p class="eyebrow">Compare</p>
+        <h1>Krahaso cmimet nga Gjirafa dhe Neptun.</h1>
+        <p class="lede">
+          Zgjidh produktet per krahasim dhe shiko cmimin me te ulet dhe kursimin.
+        </p>
+        <div class="controls">
+          <input id="searchInput" type="search" placeholder='Kerko p.sh. "iphone 17"' />
+          <button id="searchBtn">Krahaso</button>
+          <button id="resetBtn" class="ghost">Rifresko</button>
+          <span id="status" class="status"></span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Produkte te krahasuara</div>
+        <div class="stat-value" id="matchCount">-</div>
+        <div class="stat-foot" id="bestDeal">Shfaqet me i liri dhe kursimi</div>
+      </div>
+    </section>
+
+    <section class="list glass">
+      <div class="section-head">
+        <h2>Krahasimi i cmimeve</h2>
+        <span class="pill ghost">Vetem Gjirafa + Neptun</span>
+      </div>
+      <div id="results" class="compare-list empty">Duke ngarkuar...</div>
+    </section>
+  </main>
+
+  <footer class="shell footer">
+    <div>Powered by FastAPI + MongoDB Atlas + BeautifulSoup</div>
+    <div>Compare view for KS market</div>
+  </footer>
+
+  <script>
+    const resultsEl = document.getElementById("results");
+    const matchCountEl = document.getElementById("matchCount");
+    const bestDealEl = document.getElementById("bestDeal");
+    const statusEl = document.getElementById("status");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const apiBase = "";
+    const compareStores = ["gjirafamall", "neptun"];
+    const storeLabels = {
+      gjirafamall: "Gjirafa",
+      neptun: "Neptun",
+    };
+    const params = new URLSearchParams(window.location.search);
+    const skusParam = params.get("skus");
+    const skuParam = params.get("sku");
+    const queryParam = params.get("q");
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text || "";
+      statusEl.className = isError ? "status error" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function simplifyProductName(rawName) {
+      if (!rawName) return "";
+      const normalized = String(rawName).replace(/,/g, " ").replace(/\s+/g, " ").trim();
+      const tokens = normalized.split(" ");
+      const lowerTokens = tokens.map((t) => t.toLowerCase());
+      const iphoneIndex = lowerTokens.indexOf("iphone");
+      if (iphoneIndex === -1) {
+        return normalized;
+      }
+      const parts = [];
+      if (iphoneIndex > 0 && lowerTokens[iphoneIndex - 1] === "apple") {
+        parts.push(tokens[iphoneIndex - 1]);
+      }
+      parts.push(tokens[iphoneIndex]);
+      let idx = iphoneIndex + 1;
+      if (idx < tokens.length && /^\d+$/.test(tokens[idx])) {
+        parts.push(tokens[idx]);
+        idx += 1;
+      }
+      while (idx < tokens.length) {
+        const token = tokens[idx];
+        const lower = token.toLowerCase();
+        if (["pro", "max", "plus", "mini", "air", "se"].includes(lower)) {
+          parts.push(token);
+          idx += 1;
+          continue;
+        }
+        break;
+      }
+      const storageMatch = normalized.match(/(\d+)\s?(gb|tb)/i);
+      if (storageMatch) {
+        parts.push(`${storageMatch[1]}${storageMatch[2].toUpperCase()}`);
+      }
+      return parts.join(" ");
+    }
+
+    function normalizeStoreCode(value) {
+      if (!value) return value;
+      const normalized = String(value).toLowerCase().replace(/\s+/g, "");
+      if (normalized.includes("gjirafa")) return "gjirafamall";
+      if (normalized.includes("neptun")) return "neptun";
+      return normalized;
+    }
+
+    function formatNumber(value) {
+      const formatter = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return formatter.format(value);
+    }
+
+    function formatMoney(entry) {
+      if (!entry) return "Pa oferte";
+      const currency = (entry.currency || "EUR").toUpperCase();
+      return `${formatNumber(entry.price)} ${currency}`;
+    }
+
+    function renderCell(value, className = "", muted = false) {
+      const mutedClass = muted ? "is-muted" : "";
+      return `<span class="compare-cell ${className} ${mutedClass}">${value}</span>`;
+    }
+
+    function renderPriceCell(entry, isBest) {
+      if (!entry) {
+        return renderCell("Pa oferte", "empty", true);
+      }
+      return renderCell(formatMoney(entry), isBest ? "best" : "");
+    }
+
+    function renderBestCell(isBest) {
+      if (!isBest) {
+        return renderCell("—", "empty", true);
+      }
+      return renderCell('<span class="compare-pill best">Me i lire</span>', "best");
+    }
+
+    function renderSavingsCell(isBest, discount, currency) {
+      if (!isBest) {
+        return renderCell("—", "empty", true);
+      }
+      if (discount === null || discount === undefined) {
+        return renderCell("Pa krahasim", "empty", true);
+      }
+      const cur = (currency || "EUR").toUpperCase();
+      return renderCell(`<span class="compare-pill save">${formatNumber(discount)} ${cur}</span>`, "save");
+    }
+
+    function buildRows(products) {
+      const rows = products
+        .map((product) => {
+          const offers = Array.isArray(product.latest_prices) ? product.latest_prices : [];
+          const byStore = {};
+          for (const offer of offers) {
+            const store = normalizeStoreCode(offer.store);
+            if (compareStores.includes(store)) {
+              byStore[store] = { ...offer, store };
+            }
+          }
+          const gjirafa = byStore.gjirafamall || null;
+          const neptun = byStore.neptun || null;
+          if (!gjirafa && !neptun) return null;
+          const candidates = [gjirafa, neptun].filter(Boolean);
+          candidates.sort((a, b) => a.price - b.price);
+          const best = candidates[0] || null;
+          const worst = candidates.length > 1 ? candidates[candidates.length - 1] : null;
+          const discount = worst ? worst.price - best.price : null;
+          const currency = (best && best.currency) || (gjirafa && gjirafa.currency) || (neptun && neptun.currency);
+          return {
+            product,
+            gjirafa,
+            neptun,
+            best,
+            worst,
+            discount,
+            currency,
+          };
+        })
+        .filter(Boolean);
+
+      rows.sort((a, b) => {
+        const aPrice = a.best ? a.best.price : Number.POSITIVE_INFINITY;
+        const bPrice = b.best ? b.best.price : Number.POSITIVE_INFINITY;
+        return aPrice - bPrice;
+      });
+      return rows;
+    }
+
+    function renderRows(rows) {
+      resultsEl.classList.remove("empty");
+      if (!rows.length) {
+        resultsEl.innerHTML = "<div class='empty-note'>Asnje produkt i gjetur.</div>";
+        matchCountEl.textContent = "0";
+        bestDealEl.textContent = "Nuk ka oferta nga Gjirafa ose Neptun.";
+        return;
+      }
+      const bestRow = rows[0];
+      const bestLabel = bestRow.best ? storeLabels[bestRow.best.store] || bestRow.best.store : "Unknown";
+      const bestName = simplifyProductName(bestRow.product.name || "");
+      matchCountEl.textContent = rows.length;
+      const discountText =
+        bestRow.discount !== null && bestRow.discount !== undefined
+          ? ` | Kursim ${formatNumber(bestRow.discount)} ${(bestRow.currency || "EUR").toUpperCase()}`
+          : "";
+      bestDealEl.textContent = `Me i lire: ${bestName || bestRow.product.name} (${bestLabel}) ${formatMoney(bestRow.best)}${discountText}`;
+
+      resultsEl.innerHTML = `
+        <div class="compare-sort">Renditur nga me i liri te me i shtrenjti</div>
+        ${rows
+          .map((row, idx) => {
+            const isBest = idx === 0 && row.best;
+            const name = escapeHtml(simplifyProductName(row.product.name));
+            const sku = escapeHtml(row.product.sku);
+            const bestStore = row.best ? row.best.store : null;
+            const gjirafaBest = bestStore === "gjirafamall";
+            const neptunBest = bestStore === "neptun";
+            return `
+              <article class="compare-card ${isBest ? "best" : ""}">
+                <div class="compare-header">
+                  <div class="compare-meta">
+                    <div class="compare-name">${name}</div>
+                    <div class="compare-sku">${sku}</div>
+                  </div>
+                  <div class="compare-rank">#${idx + 1}</div>
+                </div>
+                <div class="compare-table">
+                  <div class="compare-table-row head">
+                    <span></span>
+                    <span class="compare-store gjirafamall">Gjirafa</span>
+                    <span class="compare-store neptun">Neptun</span>
+                  </div>
+                  <div class="compare-table-row">
+                    <span class="compare-table-label">Cmimi aktual</span>
+                    ${renderPriceCell(row.gjirafa, gjirafaBest)}
+                    ${renderPriceCell(row.neptun, neptunBest)}
+                  </div>
+                  <div class="compare-table-row">
+                    <span class="compare-table-label">Me i lire</span>
+                    ${renderBestCell(gjirafaBest)}
+                    ${renderBestCell(neptunBest)}
+                  </div>
+                  <div class="compare-table-row">
+                    <span class="compare-table-label">Kursimi</span>
+                    ${renderSavingsCell(gjirafaBest, row.discount, row.currency)}
+                    ${renderSavingsCell(neptunBest, row.discount, row.currency)}
+                  </div>
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      `;
+    }
+
+    async function fetchProductWithPrices(sku) {
+      const productUrl = `${apiBase}/products/${encodeURIComponent(sku)}`;
+      const pricesUrl = `${apiBase}/products/${encodeURIComponent(sku)}/prices`;
+      const [productRes, pricesRes] = await Promise.all([fetch(productUrl), fetch(pricesUrl)]);
+      if (!productRes.ok) throw new Error(productRes.statusText);
+      if (!pricesRes.ok) throw new Error(pricesRes.statusText);
+      const product = await productRes.json();
+      const prices = await pricesRes.json();
+      const latestPrices = (prices || []).map((offer) => ({
+        store: normalizeStoreCode(offer.store),
+        price: offer.price,
+        currency: offer.currency,
+      }));
+      return { product: { ...product, latest_prices: latestPrices }, name: product.name };
+    }
+
+    async function loadSingleComparison(sku) {
+      setStatus("Loading...");
+      try {
+        const result = await fetchProductWithPrices(sku);
+        const rows = buildRows([result.product]);
+        renderRows(rows);
+        searchInput.value = result.name || "";
+        setStatus(`Loaded ${result.name || sku}`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim ne krahasim", true);
+        resultsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan rezultatet.</div>";
+        matchCountEl.textContent = "0";
+        bestDealEl.textContent = "Nuk ka te dhena.";
+      }
+    }
+
+    async function loadMultiComparison(skus) {
+      setStatus("Loading...");
+      try {
+        const tasks = skus.map((sku) => fetchProductWithPrices(sku));
+        const results = await Promise.allSettled(tasks);
+        const products = results
+          .filter((entry) => entry.status === "fulfilled")
+          .map((entry) => entry.value.product);
+        if (!products.length) {
+          throw new Error("No products");
+        }
+        const rows = buildRows(products);
+        renderRows(rows);
+        setStatus(`Loaded ${rows.length} products`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim ne krahasim", true);
+        resultsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan rezultatet.</div>";
+        matchCountEl.textContent = "0";
+        bestDealEl.textContent = "Nuk ka te dhena.";
+      }
+    }
+
+    async function loadComparison(query = "") {
+      setStatus("Loading...");
+      try {
+        const url = `${apiBase}/products${query ? `?q=${encodeURIComponent(query)}` : ""}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        const rows = buildRows(data || []);
+        renderRows(rows);
+        setStatus(`Found ${rows.length} matches`);
+      } catch (err) {
+        console.error(err);
+        setStatus("Gabim ne krahasim", true);
+        resultsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan rezultatet.</div>";
+        matchCountEl.textContent = "0";
+        bestDealEl.textContent = "Nuk ka te dhena.";
+      }
+    }
+
+    searchBtn.addEventListener("click", () => {
+      loadComparison(searchInput.value.trim());
+    });
+
+    resetBtn.addEventListener("click", () => {
+      searchInput.value = "";
+      window.history.replaceState({}, "", "/compare-ui");
+      loadComparison("");
+    });
+
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        loadComparison(searchInput.value.trim());
+      }
+    });
+
+    if (skusParam) {
+      const skus = skusParam
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+      if (skus.length) {
+        loadMultiComparison(skus);
+      } else {
+        loadComparison("iphone");
+      }
+    } else if (skuParam) {
+      loadSingleComparison(skuParam);
+    } else if (queryParam) {
+      searchInput.value = queryParam;
+      loadComparison(queryParam);
+    } else {
+      loadComparison("iphone");
+    }
+  </script>
+</body>
+</html>
