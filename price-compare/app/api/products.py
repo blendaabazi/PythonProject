@@ -45,6 +45,9 @@ def list_products(
     responses = []
     for product in products:
         offers = offer_map.get(product.sku, [])
+        offers = [offer for offer in offers if offer.in_stock]
+        if not offers:
+            continue
         store_codes = [offer.store.value for offer in offers]
         latest_prices = [
             StorePriceSummary(store=offer.store.value, price=offer.price, currency=offer.currency)
