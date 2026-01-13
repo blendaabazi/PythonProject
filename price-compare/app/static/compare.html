@@ -94,6 +94,13 @@
         .replace(/'/g, "&#39;");
     }
 
+    function sanitizeUrl(value) {
+      if (!value) return "";
+      const url = String(value).trim();
+      if (!/^https?:\/\//i.test(url)) return "";
+      return url;
+    }
+
     function simplifyProductName(rawName) {
       if (!rawName) return "";
       const normalized = String(rawName).replace(/,/g, " ").replace(/\s+/g, " ").trim();
@@ -162,6 +169,19 @@
       return renderCell(formatMoney(entry), isBest ? "best" : "");
     }
 
+    function renderLinkCell(entry) {
+      if (!entry || !entry.product_url) {
+        return renderCell("-", "empty", true);
+      }
+      const safeUrl = sanitizeUrl(entry.product_url);
+      if (!safeUrl) {
+        return renderCell("-", "empty", true);
+      }
+      return renderCell(
+        `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Hap</a>`
+      );
+    }
+
     function renderBestCell(isBest) {
       if (!isBest) {
         return renderCell("-", "empty", true);
@@ -188,7 +208,12 @@
         const baseName = simplifyProductName(product.name || "") || product.name || product.sku || "";
         const key = baseName.toLowerCase();
         const group = grouped.get(key) || {
-          product: { name: product.name || baseName, sku: product.sku },
+          product: {
+            name: product.name || baseName,
+            sku: product.sku,
+            image_url: product.image_url,
+            image_urls: product.image_urls,
+          },
           offersByStore: {},
         };
         for (const offer of offers) {
@@ -260,6 +285,13 @@
             const isBest = idx === 0 && row.best;
             const name = escapeHtml(simplifyProductName(row.product.name));
             const sku = escapeHtml(row.product.sku);
+            const imageUrl = sanitizeUrl(
+              row.product.image_url ||
+                (Array.isArray(row.product.image_urls) ? row.product.image_urls[0] : "")
+            );
+            const imageHtml = imageUrl
+              ? `<div class="compare-thumb"><img src="${escapeHtml(imageUrl)}" alt="${name}" loading="lazy" /></div>`
+              : "<div class='compare-thumb placeholder'><span>No image</span></div>";
             const bestStore = row.best ? row.best.store : null;
             const gjirafaBest = bestStore === "gjirafamall";
             const neptunBest = bestStore === "neptun";
@@ -267,8 +299,11 @@
               <article class="compare-card ${isBest ? "best" : ""}">
                 <div class="compare-header">
                   <div class="compare-meta">
-                    <div class="compare-name">${name}</div>
-                    <div class="compare-sku">${sku}</div>
+                    ${imageHtml}
+                    <div>
+                      <div class="compare-name">${name}</div>
+                      <div class="compare-sku">${sku}</div>
+                    </div>
                   </div>
                   <div class="compare-rank">#${idx + 1}</div>
                 </div>
@@ -282,6 +317,11 @@
                     <span class="compare-table-label">Cmimi aktual</span>
                     ${renderPriceCell(row.gjirafa, gjirafaBest)}
                     ${renderPriceCell(row.neptun, neptunBest)}
+                  </div>
+                  <div class="compare-table-row">
+                    <span class="compare-table-label">Link</span>
+                    ${renderLinkCell(row.gjirafa)}
+                    ${renderLinkCell(row.neptun)}
                   </div>
                   <div class="compare-table-row">
                     <span class="compare-table-label">Me i lire</span>
@@ -313,6 +353,8 @@
         store: normalizeStoreCode(offer.store),
         price: offer.price,
         currency: offer.currency,
+        product_url: offer.product_url,
+        in_stock: offer.in_stock,
       }));
       return { product: { ...product, latest_prices: latestPrices }, name: product.name };
     }

@@ -34,11 +34,15 @@ class IngestionService:
             shop = Shop(code=scraper.store, name=scraper.store.display())
             store_id = self.shop_repo.upsert(shop)
             for item in scraper.fetch():
+                image_urls = item.image_urls or ([item.image_url] if item.image_url else None)
+                primary_image = item.image_url or (image_urls[0] if image_urls else None)
                 product = Product(
                     sku=item.sku,
                     name=item.name,
                     category=scraper.category,
                     brand=item.brand or "Apple",
+                    image_url=primary_image,
+                    image_urls=image_urls,
                 )
                 product_id = self.product_repo.upsert(product)
                 price = PricePoint(

@@ -12,6 +12,8 @@ class Product:
     name: str
     category: ProductCategory = ProductCategory.SMARTPHONE
     brand: Optional[str] = None
+    image_url: Optional[str] = None
+    image_urls: Optional[list[str]] = None
     id: Optional[str] = None
 
 

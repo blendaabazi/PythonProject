@@ -1,4 +1,12 @@
-from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name, looks_like_accessory
+from ..scraping.base import (
+    BaseScraper,
+    ScrapedItem,
+    parse_price,
+    slugify_name,
+    looks_like_accessory,
+    extract_image_urls_from_tag,
+    dedupe_urls,
+)
 from ...domain.enums import ShopName, ProductCategory
 
 
@@ -29,6 +37,14 @@ class GjirafaMallIphone16Scraper(BaseScraper):
             return []
         price = parse_price(price_el.get_text(" ", strip=True))
         sku = slugify_name(name)
+        image_urls: list[str] = []
+        gallery_imgs = soup.select(
+            ".picture-thumbs img, .product-thumbs img, .product-gallery img, .gallery-thumbs img, img"
+        )
+        for img in gallery_imgs:
+            image_urls.extend(extract_image_urls_from_tag(img, "https://gjirafamall.com"))
+        image_urls = dedupe_urls(image_urls)
+        image_url = image_urls[0] if image_urls else None
         yield ScrapedItem(
             sku=sku,
             name=name,
@@ -37,4 +53,6 @@ class GjirafaMallIphone16Scraper(BaseScraper):
             product_url=self.PRODUCT_URL,
             in_stock=True,
             brand="Apple",
+            image_url=image_url,
+            image_urls=image_urls or None,
         )

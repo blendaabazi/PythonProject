@@ -16,6 +16,8 @@ def _to_product_response(
         name=product.name,
         category=product.category.value,
         brand=product.brand,
+        image_url=product.image_url,
+        image_urls=product.image_urls,
         stores=stores,
         latest_prices=latest_prices,
     )
@@ -50,7 +52,13 @@ def list_products(
             continue
         store_codes = [offer.store.value for offer in offers]
         latest_prices = [
-            StorePriceSummary(store=offer.store.value, price=offer.price, currency=offer.currency)
+            StorePriceSummary(
+                store=offer.store.value,
+                price=offer.price,
+                currency=offer.currency,
+                product_url=offer.product_url,
+                in_stock=offer.in_stock,
+            )
             for offer in offers
         ]
         responses.append(_to_product_response(product, store_codes, latest_prices))

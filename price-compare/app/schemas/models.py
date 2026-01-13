@@ -7,6 +7,8 @@ class StorePriceSummary(BaseModel):
     store: str
     price: float
     currency: str
+    product_url: Optional[str] = None
+    in_stock: Optional[bool] = None
 
 
 class ProductResponse(BaseModel):
@@ -14,6 +16,8 @@ class ProductResponse(BaseModel):
     name: str
     category: str = Field(description="Product category identifier")
     brand: Optional[str] = None
+    image_url: Optional[str] = None
+    image_urls: Optional[List[str]] = None
     stores: Optional[List[str]] = None
     latest_prices: Optional[List[StorePriceSummary]] = None
 

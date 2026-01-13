@@ -34,6 +34,10 @@ class MongoProductRepository(ProductRepository):
                 "category": product.category.value,
                 "brand": product.brand,
             }
+            if product.image_url is not None:
+                doc["image_url"] = product.image_url
+            if product.image_urls:
+                doc["image_urls"] = product.image_urls
             saved = self.collection.find_one_and_update(
                 {"sku": product.sku},
                 {"$set": doc},
@@ -56,12 +60,25 @@ class MongoProductRepository(ProductRepository):
             name=doc["name"],
             category=ProductCategory(category),
             brand=doc.get("brand"),
+            image_url=doc.get("image_url"),
+            image_urls=doc.get("image_urls"),
         )
 
     def search(self, query: Optional[str] = None) -> List[Product]:
         filter_ = {"name": {"$regex": query, "$options": "i"}} if query else {}
         results = []
-        for doc in self.collection.find(filter_, {"_id": 1, "sku": 1, "name": 1, "category": 1, "brand": 1}):
+        for doc in self.collection.find(
+            filter_,
+            {
+                "_id": 1,
+                "sku": 1,
+                "name": 1,
+                "category": 1,
+                "brand": 1,
+                "image_url": 1,
+                "image_urls": 1,
+            },
+        ):
             category = doc.get("category", ProductCategory.SMARTPHONE.value)
             results.append(
                 Product(
@@ -70,6 +87,8 @@ class MongoProductRepository(ProductRepository):
                     name=doc["name"],
                     category=ProductCategory(category),
                     brand=doc.get("brand"),
+                    image_url=doc.get("image_url"),
+                    image_urls=doc.get("image_urls"),
                 )
             )
         return results

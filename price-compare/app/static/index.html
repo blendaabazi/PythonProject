@@ -103,6 +103,22 @@
       statusEl.className = isError ? "status error" : "status";
     }
 
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function sanitizeUrl(value) {
+      if (!value) return "";
+      const url = String(value).trim();
+      if (!/^https?:\/\//i.test(url)) return "";
+      return url;
+    }
+
     function renderProducts(items) {
       productsEl.classList.remove("empty");
       if (!items.length) {
@@ -133,6 +149,12 @@
         .map((p) => {
           const badge = storeLabel(p.stores);
           const prices = Array.isArray(p.latest_prices) ? p.latest_prices : [];
+          const imageUrl = sanitizeUrl(p.image_url || (Array.isArray(p.image_urls) ? p.image_urls[0] : ""));
+          const imageHtml = imageUrl
+            ? `<div class="product-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(
+                p.name
+              )}" loading="lazy" /></div>`
+            : "<div class='product-image placeholder'><span>No image</span></div>";
           const priceHtml = prices.length
             ? prices
                 .map(
@@ -149,6 +171,7 @@
               <div class="pill ghost small">SKU</div>
               <div class="${badge.cls}">${badge.label}</div>
             </div>
+            ${imageHtml}
             <h3>${p.name}</h3>
             <p class="muted">${p.sku}</p>
             <div class="price-chips">${priceHtml}</div>

@@ -19,6 +19,8 @@ class ScrapedItem:
     product_url: str
     in_stock: bool
     brand: str | None = None
+    image_url: str | None = None
+    image_urls: list[str] | None = None
 
 
 class BaseScraper(abc.ABC):
@@ -102,6 +104,50 @@ def parse_price(text: str) -> float:
             normalized = cleaned
 
     return float(normalized)
+
+
+def normalize_url(value: str | None, base: str) -> str | None:
+    if not value:
+        return None
+    url = str(value).strip()
+    if not url:
+        return None
+    if url.startswith(("http://", "https://")):
+        return url
+    if url.startswith("//"):
+        return f"https:{url}"
+    return f"{base.rstrip('/')}/{url.lstrip('/')}"
+
+
+def dedupe_urls(urls: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for url in urls:
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        unique.append(url)
+    return unique
+
+
+def extract_image_urls_from_tag(tag, base: str) -> list[str]:
+    if tag is None:
+        return []
+    values: list[str] = []
+    for attr in ("data-src", "data-original", "data-lazy", "src", "ng-src", "data-ng-src"):
+        val = tag.get(attr)
+        if val:
+            values.append(val)
+    for attr in ("srcset", "data-srcset"):
+        val = tag.get(attr)
+        if not val:
+            continue
+        for item in val.split(","):
+            url = item.strip().split(" ")[0]
+            if url:
+                values.append(url)
+    normalized = [normalize_url(url, base) for url in values]
+    return dedupe_urls([url for url in normalized if url])
 
 
 def slugify_name(name: str) -> str:

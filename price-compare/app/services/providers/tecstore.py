@@ -1,4 +1,4 @@
-from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name
+from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name, normalize_url
 from ...domain.enums import ShopName, ProductCategory
 
 
@@ -25,6 +25,20 @@ class TecStoreScraper(BaseScraper):
                 continue
             sku = slugify_name(name)
             link = link_el["href"]
+            img_el = card.select_one("img")
+            img_src = ""
+            if img_el:
+                img_src = (
+                    img_el.get("data-src")
+                    or img_el.get("data-original")
+                    or img_el.get("data-lazy")
+                    or img_el.get("src")
+                    or ""
+                )
+                if not img_src:
+                    srcset = img_el.get("srcset") or img_el.get("data-srcset") or ""
+                    img_src = srcset.split(",")[0].strip().split(" ")[0] if srcset else ""
+            image_url = normalize_url(img_src, "https://exampletecstore.com")
             yield ScrapedItem(
                 sku=sku,
                 name=name,
@@ -33,4 +47,5 @@ class TecStoreScraper(BaseScraper):
                 product_url=link if link.startswith("http") else f"https://exampletecstore.com{link}",
                 in_stock="out of stock" not in card.get_text(" ").lower(),
                 brand=None,
+                image_url=image_url,
             )

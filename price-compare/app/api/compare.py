@@ -11,6 +11,8 @@ def _product_to_response(product) -> ProductResponse:
         name=product.name,
         category=product.category.value,
         brand=product.brand,
+        image_url=product.image_url,
+        image_urls=product.image_urls,
     )
 
 
