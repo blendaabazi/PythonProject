@@ -1,10 +1,14 @@
 import abc
 import logging
 import re
+import time
 from dataclasses import dataclass
 from typing import Iterable
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from ...config import settings
 from ...domain.enums import ShopName, ProductCategory
 
 logger = logging.getLogger(__name__)
@@ -37,6 +41,23 @@ class BaseScraper(abc.ABC):
     category: ProductCategory = ProductCategory.SMARTPHONE
     parser: str = "lxml"
 
+    def __init__(self) -> None:
+        self._session = requests.Session()
+        retries = Retry(
+            total=settings.scrape_retries,
+            connect=settings.scrape_retries,
+            read=settings.scrape_retries,
+            status=settings.scrape_retries,
+            backoff_factor=settings.scrape_backoff_sec,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=("GET",),
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retries)
+        self._session.mount("http://", adapter)
+        self._session.mount("https://", adapter)
+        self._last_request_ts = 0.0
+
     def fetch(self) -> Iterable[ScrapedItem]:
         for url in self.target_urls():
             try:
@@ -48,10 +69,26 @@ class BaseScraper(abc.ABC):
             for item in self.parse_products(soup, url):
                 yield item
 
+    def _throttle(self) -> None:
+        delay = settings.scrape_delay_sec
+        if delay <= 0:
+            return
+        now = time.monotonic()
+        sleep_for = delay - (now - self._last_request_ts)
+        if sleep_for > 0:
+            time.sleep(sleep_for)
+        self._last_request_ts = time.monotonic()
+
     def _get(self, url: str) -> str:
+        self._throttle()
         headers = {"User-Agent": "Mozilla/5.0"}
         # Explicitly ignore system proxies to avoid blocked corporate proxy defaults.
-        resp = requests.get(url, headers=headers, timeout=20, proxies={"http": None, "https": None})
+        resp = self._session.get(
+            url,
+            headers=headers,
+            timeout=settings.scrape_timeout_sec,
+            proxies={"http": None, "https": None},
+        )
         resp.raise_for_status()
         return resp.text
 

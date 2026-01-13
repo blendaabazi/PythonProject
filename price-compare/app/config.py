@@ -20,5 +20,21 @@ class Settings(BaseSettings):
         default=True,
         validation_alias=AliasChoices("SCRAPE_ON_STARTUP"),
     )
+    scrape_timeout_sec: int = Field(
+        default=20,
+        validation_alias=AliasChoices("SCRAPE_TIMEOUT_SEC"),
+    )
+    scrape_retries: int = Field(
+        default=2,
+        validation_alias=AliasChoices("SCRAPE_RETRIES"),
+    )
+    scrape_backoff_sec: float = Field(
+        default=0.5,
+        validation_alias=AliasChoices("SCRAPE_BACKOFF_SEC"),
+    )
+    scrape_delay_sec: float = Field(
+        default=0.0,
+        validation_alias=AliasChoices("SCRAPE_DELAY_SEC"),
+    )
 
 settings = Settings()

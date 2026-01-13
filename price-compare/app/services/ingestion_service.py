@@ -30,30 +30,39 @@ class IngestionService:
 
     def _ingest_scraper(self, scraper: BaseScraper, timestamp: datetime) -> None:
         logger.info("Scraping %s", scraper.store)
+        item_count = 0
+        error_count = 0
         try:
             shop = Shop(code=scraper.store, name=scraper.store.display())
             store_id = self.shop_repo.upsert(shop)
             for item in scraper.fetch():
-                image_urls = item.image_urls or ([item.image_url] if item.image_url else None)
-                primary_image = item.image_url or (image_urls[0] if image_urls else None)
-                product = Product(
-                    sku=item.sku,
-                    name=item.name,
-                    category=scraper.category,
-                    brand=item.brand or "Apple",
-                    image_url=primary_image,
-                    image_urls=image_urls,
-                )
-                product_id = self.product_repo.upsert(product)
-                price = PricePoint(
-                    product_sku=product.sku,
-                    store=scraper.store,
-                    price=item.price,
-                    currency=item.currency,
-                    product_url=item.product_url,
-                    in_stock=item.in_stock,
-                    timestamp=timestamp,
-                )
-                self.price_repo.add_price(price, product_id, store_id)
+                try:
+                    image_urls = item.image_urls or ([item.image_url] if item.image_url else None)
+                    primary_image = item.image_url or (image_urls[0] if image_urls else None)
+                    product = Product(
+                        sku=item.sku,
+                        name=item.name,
+                        category=scraper.category,
+                        brand=item.brand or "Apple",
+                        image_url=primary_image,
+                        image_urls=image_urls,
+                    )
+                    product_id = self.product_repo.upsert(product)
+                    price = PricePoint(
+                        product_sku=product.sku,
+                        store=scraper.store,
+                        price=item.price,
+                        currency=item.currency,
+                        product_url=item.product_url,
+                        in_stock=item.in_stock,
+                        timestamp=timestamp,
+                    )
+                    self.price_repo.add_price(price, product_id, store_id)
+                    item_count += 1
+                except Exception as exc:
+                    error_count += 1
+                    sku = getattr(item, "sku", "unknown")
+                    logger.warning("Skipping item store=%s sku=%s error=%s", scraper.store, sku, exc)
+            logger.info("Scraping %s done items=%s errors=%s", scraper.store, item_count, error_count)
         except Exception as exc:
             logger.exception("Failed scraping %s: %s", scraper.store, exc)

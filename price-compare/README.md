@@ -5,6 +5,7 @@ Technology product price comparison platform for Kosovo, designed for Advanced P
 ## Quickstart
 - Prereqs: Python 3.11+, MongoDB (local or Atlas), `pip install -r requirements.txt`.
 - Env: copy `.env` and set `MONGO_URI`, `MONGO_DB`, optionally `SCRAPE_INTERVAL_MIN`, `SCRAPE_ON_STARTUP`.
+- Scraping tuning (optional): `SCRAPE_TIMEOUT_SEC`, `SCRAPE_RETRIES`, `SCRAPE_BACKOFF_SEC`, `SCRAPE_DELAY_SEC`.
 - Run API: `uvicorn app.main:app --reload` (serves Swagger at `/docs` and UI at `/`).
 - One-off ingest: `python scripts/manual_ingest.py` (uses the shared `IngestionService`).
 - Tests: `pytest`.
