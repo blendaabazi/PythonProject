@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,32 +14,32 @@ from .dependencies import get_ingestion_service
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
-app = FastAPI(title="KS Price Compare")
+scheduler = BackgroundScheduler()
+scheduler.add_job(lambda: get_ingestion_service().run_all(), "interval", minutes=settings.scrape_interval_min)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        ensure_indexes()
+        if settings.scrape_on_startup:
+            get_ingestion_service().run_all()
+        scheduler.start()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.exception("Startup hook failed: %s", exc)
+    try:
+        yield
+    finally:
+        scheduler.shutdown()
+
+
+app = FastAPI(title="KS Price Compare", lifespan=lifespan)
 register_exception_handlers(app)
 app.include_router(products.router)
 app.include_router(shops.router)
 app.include_router(prices.router)
 app.include_router(compare.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-scheduler = BackgroundScheduler()
-scheduler.add_job(lambda: get_ingestion_service().run_all(), "interval", minutes=settings.scrape_interval_min)
-
-
-@app.on_event("startup")
-def startup():
-    try:
-        ensure_indexes()
-        if settings.scrape_on_startup:
-            get_ingestion_service().run_all()
-        scheduler.start()
-    except Exception as exc:
-        logger.exception("Startup hook failed: %s", exc)
-
-
-@app.on_event("shutdown")
-def shutdown():
-    scheduler.shutdown()
 
 
 @app.get("/")

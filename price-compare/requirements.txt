@@ -9,3 +9,4 @@ pydantic-settings
 apscheduler
 python-dotenv
 pytest
+ruff

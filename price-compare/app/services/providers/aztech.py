@@ -1,8 +1,13 @@
-from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name, looks_like_accessory, normalize_url
+from ..scraping.base import (
+    PagedScraper,
+    ScrapedItem,
+    slugify_name,
+    looks_like_accessory,
+)
 from ...domain.enums import ShopName, ProductCategory
 
 
-class AztechScraper(BaseScraper):
+class AztechScraper(PagedScraper):
     store = ShopName.AZTECH
     category = ProductCategory.SMARTPHONE
     BASE_URL = "https://aztechonline.com/telefon-tablete?limit=20&Brendi_Telelefona=17178&page={page}"
@@ -11,9 +16,8 @@ class AztechScraper(BaseScraper):
     def base_url(self) -> str:
         return self.BASE_URL.format(page=1)
 
-    def target_urls(self):
-        for page in range(1, self.max_pages + 1):
-            yield self.BASE_URL.format(page=page)
+    def base_url_for_page(self, page: int) -> str:
+        return self.BASE_URL.format(page=page)
 
     def parse_products(self, soup, url):
         cards = soup.select(".product-layout, .product-grid, .product-item")
@@ -27,7 +31,7 @@ class AztechScraper(BaseScraper):
             if "iphone" not in name.lower() or looks_like_accessory(name):
                 continue
             try:
-                price = parse_price(price_el.get_text(" ", strip=True))
+                price = self.parse_price(price_el.get_text(" ", strip=True))
             except Exception:
                 continue
             href = link_el.get("href") or ""
@@ -45,7 +49,7 @@ class AztechScraper(BaseScraper):
                 if not img_src:
                     srcset = img_el.get("srcset") or img_el.get("data-srcset") or ""
                     img_src = srcset.split(",")[0].strip().split(" ")[0] if srcset else ""
-            image_url = normalize_url(img_src, "https://aztechonline.com")
+            image_url = self.normalize_url(img_src, "https://aztechonline.com")
             sku = slugify_name(name)
             yield ScrapedItem(
                 sku=sku,

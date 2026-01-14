@@ -1,4 +1,4 @@
-from ..scraping.base import BaseScraper, ScrapedItem, parse_price, slugify_name, normalize_url
+from ..scraping.base import BaseScraper, ScrapedItem, slugify_name
 from ...domain.enums import ShopName, ProductCategory
 
 
@@ -20,7 +20,7 @@ class TecStoreScraper(BaseScraper):
                 continue
             name = name_el.get_text(strip=True)
             try:
-                price = parse_price(price_el.get_text(strip=True))
+                price = self.parse_price(price_el.get_text(strip=True))
             except Exception:
                 continue
             sku = slugify_name(name)
@@ -38,7 +38,7 @@ class TecStoreScraper(BaseScraper):
                 if not img_src:
                     srcset = img_el.get("srcset") or img_el.get("data-srcset") or ""
                     img_src = srcset.split(",")[0].strip().split(" ")[0] if srcset else ""
-            image_url = normalize_url(img_src, "https://exampletecstore.com")
+            image_url = self.normalize_url(img_src, "https://exampletecstore.com")
             yield ScrapedItem(
                 sku=sku,
                 name=name,

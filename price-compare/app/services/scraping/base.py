@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, List, Protocol
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
@@ -27,21 +27,40 @@ class ScrapedItem:
     image_urls: list[str] | None = None
 
 
-class BaseScraper(abc.ABC):
-    """Template Method base class for scrapers.
+class PriceParser(Protocol):
+    def parse(self, text: str) -> float: ...
 
-    The fetch() method defines the invariant algorithm:
-        - iterate target URLs
-        - download HTML
-        - parse into ScrapedItem instances
-    Subclasses customize target_urls() and parse_products().
-    """
+
+class EuPriceParser(PriceParser):
+    """Parse EU/US formatted price strings to float."""
+
+    def parse(self, text: str) -> float:
+        return parse_price(text)
+
+
+class UrlNormalizer(Protocol):
+    def normalize(self, value: str | None, base: str) -> str | None: ...
+
+
+class BasicUrlNormalizer(UrlNormalizer):
+    def normalize(self, value: str | None, base: str) -> str | None:
+        return normalize_url(value, base)
+
+
+class BaseScraper(abc.ABC):
+    """Template Method base class for scrapers with overridable hooks."""
 
     store: ShopName
     category: ProductCategory = ProductCategory.SMARTPHONE
     parser: str = "lxml"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        price_parser: PriceParser | None = None,
+        url_normalizer: UrlNormalizer | None = None,
+    ) -> None:
+        self.price_parser = price_parser or EuPriceParser()
+        self.url_normalizer = url_normalizer or BasicUrlNormalizer()
         self._session = requests.Session()
         retries = Retry(
             total=settings.scrape_retries,
@@ -61,13 +80,30 @@ class BaseScraper(abc.ABC):
     def fetch(self) -> Iterable[ScrapedItem]:
         for url in self.target_urls():
             try:
+                self.before_request(url)
                 html = self._get(url)
             except Exception as exc:
                 logger.warning("Skipping %s url=%s due to %s", self.store, url, exc)
                 continue
             soup = BeautifulSoup(html, self.parser)
+            items = []
             for item in self.parse_products(soup, url):
-                yield item
+                if self.should_skip(item):
+                    continue
+                items.append(item)
+            yield from self.after_parse(items)
+
+    def before_request(self, url: str) -> None:
+        """Hook to inject headers/auth before a request."""
+        return None
+
+    def should_skip(self, item: ScrapedItem) -> bool:
+        """Hook to drop items (e.g., accessories)."""
+        return False
+
+    def after_parse(self, items: List[ScrapedItem]) -> Iterable[ScrapedItem]:
+        """Hook to post-process parsed items."""
+        return items
 
     def _throttle(self) -> None:
         delay = settings.scrape_delay_sec
@@ -82,7 +118,6 @@ class BaseScraper(abc.ABC):
     def _get(self, url: str) -> str:
         self._throttle()
         headers = {"User-Agent": "Mozilla/5.0"}
-        # Explicitly ignore system proxies to avoid blocked corporate proxy defaults.
         resp = self._session.get(
             url,
             headers=headers,
@@ -93,16 +128,42 @@ class BaseScraper(abc.ABC):
         return resp.text
 
     def target_urls(self) -> Iterable[str]:
-        """Override to provide paging/URL generation."""
         yield self.base_url()
+
+    def parse_price(self, text: str) -> float:
+        return self.price_parser.parse(text)
+
+    def normalize_url(self, value: str | None, base: str) -> str | None:
+        return self.url_normalizer.normalize(value, base)
 
     @abc.abstractmethod
     def base_url(self) -> str:
-        """Return base page URL (used by default target_urls)."""
+        ...
 
     @abc.abstractmethod
     def parse_products(self, soup: BeautifulSoup, url: str) -> Iterable[ScrapedItem]:
-        """Yield ScrapedItem instances from the parsed HTML."""
+        ...
+
+
+class PagedScraper(BaseScraper):
+    """Scraper that walks multiple pages via page numbers."""
+
+    max_pages: int = 1
+
+    def target_urls(self) -> Iterable[str]:
+        for page in range(1, self.max_pages + 1):
+            yield self.base_url_for_page(page)
+
+    @abc.abstractmethod
+    def base_url_for_page(self, page: int) -> str:
+        ...
+
+
+class SinglePageScraper(BaseScraper):
+    """Scraper focused on a single product/page."""
+
+    def target_urls(self) -> Iterable[str]:
+        yield self.base_url()
 
 
 def parse_price(text: str) -> float:

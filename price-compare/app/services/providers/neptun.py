@@ -3,12 +3,10 @@ import json
 import re
 from bs4 import BeautifulSoup
 from ..scraping.base import (
-    BaseScraper,
+    PagedScraper,
     ScrapedItem,
-    parse_price,
     slugify_name,
     looks_like_accessory,
-    normalize_url,
     extract_image_urls_from_tag,
     dedupe_urls,
 )
@@ -16,7 +14,7 @@ from ...config import settings
 from ...domain.enums import ShopName, ProductCategory
 
 
-class NeptunKSScraper(BaseScraper):
+class NeptunKSScraper(PagedScraper):
     store = ShopName.NEPTUN
     category = ProductCategory.SMARTPHONE
     BASE_URL = "https://www.neptun-ks.com/smartphone.nspx?brands=987&page={page}&priceRange=709_2799"
@@ -31,9 +29,8 @@ class NeptunKSScraper(BaseScraper):
     def base_url(self) -> str:
         return self.BASE_URL.format(page=1)
 
-    def target_urls(self):
-        for page in range(1, self.max_pages + 1):
-            yield self.BASE_URL.format(page=page)
+    def base_url_for_page(self, page: int) -> str:
+        return self.BASE_URL.format(page=page)
 
     def _get(self, url: str) -> str:
         """Override to include Referer; Neptun blocks some requests without it."""
@@ -159,7 +156,7 @@ class NeptunKSScraper(BaseScraper):
                 for item in val:
                     if isinstance(item, str) and re.search(r"\.(?:jpe?g|png|webp|gif)(?:\?|$)", item, re.IGNORECASE):
                         images.append(item)
-        normalized = [normalize_url(url, "https://www.neptun-ks.com") for url in images]
+        normalized = [self.normalize_url(url, "https://www.neptun-ks.com") for url in images]
         return dedupe_urls([url for url in normalized if url])
 
     def _extract_images_from_payload(self, raw: str) -> list[str]:
@@ -216,7 +213,7 @@ class NeptunKSScraper(BaseScraper):
                 urls.append(candidate)
             else:
                 urls.extend([item.strip() for item in raw.split(",") if item.strip()])
-        normalized = [normalize_url(url, "https://www.neptun-ks.com") for url in urls]
+        normalized = [self.normalize_url(url, "https://www.neptun-ks.com") for url in urls]
         return dedupe_urls([url for url in normalized if url])
 
     def _extract_images_from_tag(self, tag) -> list[str]:
@@ -226,7 +223,7 @@ class NeptunKSScraper(BaseScraper):
         for attr in ("data-zoom-image", "data-large-image", "data-full", "data-image"):
             value = tag.get(attr)
             if value:
-                normalized = normalize_url(value, "https://www.neptun-ks.com")
+                normalized = self.normalize_url(value, "https://www.neptun-ks.com")
                 if normalized:
                     urls.append(normalized)
         return dedupe_urls(urls)
@@ -260,7 +257,7 @@ class NeptunKSScraper(BaseScraper):
                     r"\.(?:jpe?g|png|webp|gif)(?:\?|$)", val, re.IGNORECASE
                 ):
                     continue
-                normalized = normalize_url(val, "https://www.neptun-ks.com")
+                normalized = self.normalize_url(val, "https://www.neptun-ks.com")
                 if normalized:
                     target = priority if key.startswith("thumbnail") or key in {
                         "imageurl",
@@ -328,7 +325,7 @@ class NeptunKSScraper(BaseScraper):
             for attr in ("ng-src", "data-ng-src"):
                 val = tag.get(attr)
                 if val:
-                    normalized = normalize_url(val, "https://www.neptun-ks.com")
+                    normalized = self.normalize_url(val, "https://www.neptun-ks.com")
                     if normalized:
                         urls.append(normalized)
         return dedupe_urls(urls)
@@ -362,7 +359,7 @@ class NeptunKSScraper(BaseScraper):
                     urls.extend(image_val)
                 elif isinstance(image_val, str):
                     urls.append(image_val)
-        normalized = [normalize_url(url, "https://www.neptun-ks.com") for url in urls]
+        normalized = [self.normalize_url(url, "https://www.neptun-ks.com") for url in urls]
         return dedupe_urls([url for url in normalized if url])
 
     def parse_products(self, soup, url):
@@ -396,9 +393,9 @@ class NeptunKSScraper(BaseScraper):
                     if category_slug and not product_slug.startswith(("http://", "https://", "/")):
                         product_url = f"https://www.neptun-ks.com/categories/{category_slug}/{product_slug}"
                     else:
-                        product_url = normalize_url(product_slug, "https://www.neptun-ks.com")
-                if not product_url:
-                    product_url = url
+                        product_url = self.normalize_url(product_slug, "https://www.neptun-ks.com")
+                        if not product_url:
+                            product_url = url
 
                 image_urls = self._extract_images_from_model(product)
                 if not image_urls and product_url:
@@ -432,7 +429,7 @@ class NeptunKSScraper(BaseScraper):
             if "iphone" not in name.lower() or looks_like_accessory(name):
                 continue
             try:
-                price = parse_price(price_el.get_text(" ", strip=True))
+                price = self.parse_price(price_el.get_text(" ", strip=True))
             except Exception:
                 continue
             href = link_el.get("href") or ""
@@ -449,7 +446,7 @@ class NeptunKSScraper(BaseScraper):
                 for attr in ("ng-src", "data-ng-src"):
                     val = tag.get(attr)
                     if val:
-                        normalized = normalize_url(val, "https://www.neptun-ks.com")
+                        normalized = self.normalize_url(val, "https://www.neptun-ks.com")
                         if normalized:
                             image_urls.append(normalized)
             # Also inspect any inline data-gallery payload on the image itself.
@@ -524,7 +521,7 @@ class NeptunKSScraper(BaseScraper):
                 continue
             currency = product.get("Currency") or "EUR"
             product_slug = product.get("Url") or product.get("url") or ""
-            product_url = normalize_url(product_slug, "https://www.neptun-ks.com") if product_slug else url
+            product_url = self.normalize_url(product_slug, "https://www.neptun-ks.com") if product_slug else url
 
             images: list[str] = []
             thumb = product.get("Thumbnail")
@@ -533,7 +530,7 @@ class NeptunKSScraper(BaseScraper):
             imgs = product.get("Images") or []
             if isinstance(imgs, list):
                 images.extend(imgs)
-            images = dedupe_urls([normalize_url(img, "https://www.neptun-ks.com") for img in images if img])
+            images = dedupe_urls([self.normalize_url(img, "https://www.neptun-ks.com") for img in images if img])
             image_url = images[0] if images else None
 
             manufacturer = product.get("Manufacturer") or {}

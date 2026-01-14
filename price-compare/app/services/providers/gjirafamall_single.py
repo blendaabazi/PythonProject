@@ -1,7 +1,6 @@
 from ..scraping.base import (
-    BaseScraper,
+    SinglePageScraper,
     ScrapedItem,
-    parse_price,
     slugify_name,
     looks_like_accessory,
     extract_image_urls_from_tag,
@@ -10,7 +9,7 @@ from ..scraping.base import (
 from ...domain.enums import ShopName, ProductCategory
 
 
-class GjirafaMallIphone16Scraper(BaseScraper):
+class GjirafaMallIphone16Scraper(SinglePageScraper):
     """Scrape the specific iPhone 15 128GB Black product page."""
 
     store = ShopName.GJIRAFAMALL
@@ -35,7 +34,7 @@ class GjirafaMallIphone16Scraper(BaseScraper):
         name = name_el.get_text(strip=True)
         if looks_like_accessory(name):
             return []
-        price = parse_price(price_el.get_text(" ", strip=True))
+        price = self.parse_price(price_el.get_text(" ", strip=True))
         sku = slugify_name(name)
         image_urls: list[str] = []
         gallery_imgs = soup.select(

@@ -1,18 +1,16 @@
 from bs4 import BeautifulSoup
 from ..scraping.base import (
-    BaseScraper,
+    PagedScraper,
     ScrapedItem,
-    parse_price,
     slugify_name,
     looks_like_accessory,
-    normalize_url,
     dedupe_urls,
     extract_image_urls_from_tag,
 )
 from ...domain.enums import ShopName, ProductCategory
 
 
-class ShopAzScraper(BaseScraper):
+class ShopAzScraper(PagedScraper):
     store = ShopName.SHOPAZ
     category = ProductCategory.SMARTPHONE
     BASE_URL = "https://shopaz.com/al/category/elektronike/10?category-2=telefon---tablet&sort=release%3Adesc&brand=apple&page={page}"
@@ -21,9 +19,8 @@ class ShopAzScraper(BaseScraper):
     def base_url(self) -> str:
         return self.BASE_URL.format(page=1)
 
-    def target_urls(self):
-        for page in range(1, self.max_pages + 1):
-            yield self.BASE_URL.format(page=page)
+    def base_url_for_page(self, page: int) -> str:
+        return self.BASE_URL.format(page=page)
 
     def parse_products(self, soup: BeautifulSoup, url: str):
         cards = soup.select(
@@ -41,7 +38,7 @@ class ShopAzScraper(BaseScraper):
             if "iphone" not in name.lower() or looks_like_accessory(name):
                 continue
             try:
-                price = parse_price(price_el.get_text(" ", strip=True))
+                price = self.parse_price(price_el.get_text(" ", strip=True))
             except Exception:
                 continue
 
@@ -55,13 +52,13 @@ class ShopAzScraper(BaseScraper):
                 for attr in ("data-src", "data-original", "data-lazy", "data-img", "ng-src", "data-ng-src"):
                     val = img_el.get(attr)
                     if val:
-                        normalized = normalize_url(val, "https://shopaz.com")
+                        normalized = self.normalize_url(val, "https://shopaz.com")
                         if normalized:
                             image_urls.append(normalized)
                 srcset = img_el.get("srcset") or img_el.get("data-srcset") or ""
                 if srcset and not image_urls:
                     first = srcset.split(",")[0].strip().split(" ")[0]
-                    normalized = normalize_url(first, "https://shopaz.com")
+                    normalized = self.normalize_url(first, "https://shopaz.com")
                     if normalized:
                         image_urls.append(normalized)
             image_urls = dedupe_urls([u for u in image_urls if u])

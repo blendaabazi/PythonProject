@@ -1,19 +1,17 @@
 import json
 from bs4 import BeautifulSoup
 from ..scraping.base import (
-    BaseScraper,
+    PagedScraper,
     ScrapedItem,
-    parse_price,
     slugify_name,
     looks_like_accessory,
-    normalize_url,
     extract_image_urls_from_tag,
     dedupe_urls,
 )
 from ...domain.enums import ShopName, ProductCategory
 
 
-class GjirafaMallScraper(BaseScraper):
+class GjirafaMallScraper(PagedScraper):
     store = ShopName.GJIRAFAMALL
     category = ProductCategory.SMARTPHONE
     BASE_URL = "https://gjirafamall.com/celular-teknologji?pagenumber={page}&orderby=&hls=false&is=false&hd=false"
@@ -22,9 +20,8 @@ class GjirafaMallScraper(BaseScraper):
     def base_url(self) -> str:
         return self.BASE_URL.format(page=1)
 
-    def target_urls(self):
-        for page in range(1, self.max_pages + 1):
-            yield self.BASE_URL.format(page=page)
+    def base_url_for_page(self, page: int) -> str:
+        return self.BASE_URL.format(page=page)
 
     def _extract_gallery_images(self, product_url: str) -> list[str]:
         try:
@@ -62,7 +59,7 @@ class GjirafaMallScraper(BaseScraper):
             if "iphone" not in name.lower() or looks_like_accessory(name):
                 continue
             try:
-                price = parse_price(price_el.get_text(" ", strip=True))
+                price = self.parse_price(price_el.get_text(" ", strip=True))
             except Exception:
                 continue
             href = link_el.get("href") or ""
@@ -84,7 +81,7 @@ class GjirafaMallScraper(BaseScraper):
                 except json.JSONDecodeError:
                     urls = [item.strip() for item in raw.split(",") if item.strip()]
                 for img_url in urls:
-                    normalized = normalize_url(img_url, "https://gjirafamall.com")
+                    normalized = self.normalize_url(img_url, "https://gjirafamall.com")
                     if normalized:
                         image_urls.append(normalized)
             if not image_urls:

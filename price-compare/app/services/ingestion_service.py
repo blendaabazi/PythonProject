@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 from ..domain.models import Product, Shop, PricePoint
 from ..domain.repositories import ProductRepository, ShopRepository, PriceRepository
+from .pricing import PricingStrategy, apply_pricing_strategies, default_pricing_strategies
 from .scraping.base import BaseScraper
 
 logger = logging.getLogger(__name__)
@@ -17,11 +18,13 @@ class IngestionService:
         shop_repo: ShopRepository,
         price_repo: PriceRepository,
         scrapers: Iterable[BaseScraper],
+        pricing_strategies: Iterable[PricingStrategy] | None = None,
     ):
         self.product_repo = product_repo
         self.shop_repo = shop_repo
         self.price_repo = price_repo
         self.scrapers = list(scrapers)
+        self.pricing_strategies = list(pricing_strategies or default_pricing_strategies())
 
     def run_all(self) -> None:
         now = datetime.now(timezone.utc)
@@ -57,7 +60,8 @@ class IngestionService:
                         in_stock=item.in_stock,
                         timestamp=timestamp,
                     )
-                    self.price_repo.add_price(price, product_id, store_id)
+                    priced = apply_pricing_strategies(price, self.pricing_strategies)
+                    self.price_repo.add_price(priced, product_id, store_id)
                     item_count += 1
                 except Exception as exc:
                     error_count += 1

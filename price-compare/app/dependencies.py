@@ -7,9 +7,11 @@ from .infrastructure.mongo.repositories import (
     MongoShopRepository,
     MongoPriceRepository,
 )
+from .infrastructure.caching import CachingPriceRepository
 from .services.scraping.factory import ScraperFactory
 from .services.ingestion_service import IngestionService
 from .services.compare_service import ComparisonService
+from .services.pricing import default_pricing_strategies, PricingStrategy
 
 
 @lru_cache(maxsize=1)
@@ -24,7 +26,7 @@ def get_shop_repo():
 
 @lru_cache(maxsize=1)
 def get_price_repo():
-    return MongoPriceRepository(get_database())
+    return CachingPriceRepository(MongoPriceRepository(get_database()))
 
 
 @lru_cache(maxsize=1)
@@ -34,12 +36,18 @@ def get_scrapers():
 
 
 @lru_cache(maxsize=1)
+def get_pricing_strategies() -> tuple[PricingStrategy, ...]:
+    return tuple(default_pricing_strategies())
+
+
+@lru_cache(maxsize=1)
 def get_ingestion_service():
     return IngestionService(
         product_repo=get_product_repo(),
         shop_repo=get_shop_repo(),
         price_repo=get_price_repo(),
         scrapers=get_scrapers(),
+        pricing_strategies=get_pricing_strategies(),
     )
 
 
