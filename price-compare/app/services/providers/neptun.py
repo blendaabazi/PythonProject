@@ -12,6 +12,7 @@ from ..scraping.base import (
     extract_image_urls_from_tag,
     dedupe_urls,
 )
+from ...config import settings
 from ...domain.enums import ShopName, ProductCategory
 
 
@@ -21,12 +22,34 @@ class NeptunKSScraper(BaseScraper):
     BASE_URL = "https://www.neptun-ks.com/smartphone.nspx?brands=987&page={page}&priceRange=709_2799"
     max_pages = 5
 
+    def __init__(self) -> None:
+        super().__init__()
+        # Disable environment proxies that can block direct site access.
+        self._session.trust_env = False
+        self._session.proxies = {"http": None, "https": None}
+
     def base_url(self) -> str:
         return self.BASE_URL.format(page=1)
 
     def target_urls(self):
         for page in range(1, self.max_pages + 1):
             yield self.BASE_URL.format(page=page)
+
+    def _get(self, url: str) -> str:
+        """Override to include Referer; Neptun blocks some requests without it."""
+        self._throttle()
+        headers = {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://www.neptun-ks.com/",
+        }
+        resp = self._session.get(
+            url,
+            headers=headers,
+            timeout=settings.scrape_timeout_sec,
+            proxies={"http": None, "https": None},
+        )
+        resp.raise_for_status()
+        return resp.text
 
     def _extract_model(self, soup, var_name: str):
         marker = f"{var_name} = \""
@@ -127,6 +150,15 @@ class NeptunKSScraper(BaseScraper):
             url = product.get(key)
             if url:
                 images.append(url)
+        # Generic catch-all: pick up any string fields that look like image URLs.
+        for key, val in product.items():
+            if isinstance(val, str):
+                if re.search(r"\.(?:jpe?g|png|webp|gif)(?:\?|$)", val, re.IGNORECASE):
+                    images.append(val)
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, str) and re.search(r"\.(?:jpe?g|png|webp|gif)(?:\?|$)", item, re.IGNORECASE):
+                        images.append(item)
         normalized = [normalize_url(url, "https://www.neptun-ks.com") for url in images]
         return dedupe_urls([url for url in normalized if url])
 
@@ -254,12 +286,13 @@ class NeptunKSScraper(BaseScraper):
             return []
         soup = BeautifulSoup(html, self.parser)
         selectors = [
+            "#productDescriptionTag .product-details-first-col__images img",
+            ".product-details-first-col__images img",
             ".product-gallery img",
             ".gallery img",
             ".product-images img",
             ".thumbs img",
             ".product-details img",
-            ".product-details-first-col__images img",
             ".eyeWrapper img",
             ".imgWrapper img",
             ".imgSlip img",
@@ -279,11 +312,69 @@ class NeptunKSScraper(BaseScraper):
             urls.extend(self._extract_images_from_text(text))
         if urls:
             return dedupe_urls(urls)
+        meta_urls = self._extract_meta_images(soup)
+        if meta_urls:
+            return meta_urls
+        dom_urls = self._extract_images_from_dom(soup)
+        if dom_urls:
+            return dom_urls
         return self._extract_images_from_text(html)
-        return []
+
+    def _extract_images_from_dom(self, soup) -> list[str]:
+        """Collect images from visible img/source tags on the page."""
+        urls: list[str] = []
+        for tag in soup.select("img, source"):
+            urls.extend(self._extract_images_from_tag(tag))
+            for attr in ("ng-src", "data-ng-src"):
+                val = tag.get(attr)
+                if val:
+                    normalized = normalize_url(val, "https://www.neptun-ks.com")
+                    if normalized:
+                        urls.append(normalized)
+        return dedupe_urls(urls)
+
+    def _extract_meta_images(self, soup) -> list[str]:
+        """Fallback for pages exposing images via OG/Twitter/meta tags."""
+        urls: list[str] = []
+        meta_selectors = [
+            ("meta[property='og:image']", "content"),
+            ("meta[property='og:image:url']", "content"),
+            ("meta[name='twitter:image']", "content"),
+            ("meta[name='twitter:image:src']", "content"),
+            ("meta[itemprop='image']", "content"),
+            ("meta[name='image']", "content"),
+            ("link[rel='image_src']", "href"),
+            ("link[rel='preload'][as='image']", "href"),
+        ]
+        for selector, attr in meta_selectors:
+            for tag in soup.select(selector):
+                val = tag.get(attr)
+                if val:
+                    urls.append(val)
+        for script in soup.select("script[type='application/ld+json']"):
+            try:
+                data = json.loads(script.string or script.get_text() or "")
+            except Exception:
+                continue
+            if isinstance(data, dict):
+                image_val = data.get("image") or data.get("Image")
+                if isinstance(image_val, list):
+                    urls.extend(image_val)
+                elif isinstance(image_val, str):
+                    urls.append(image_val)
+        normalized = [normalize_url(url, "https://www.neptun-ks.com") for url in urls]
+        return dedupe_urls([url for url in normalized if url])
 
     def parse_products(self, soup, url):
-        model = self._extract_model(soup, "shopCategoryModel")
+        # Preferred: parse Angular category bootstrap payload if present.
+        for item in self._parse_category_details(soup, url):
+            yield item
+
+        model = None
+        for var_name in ("shopCategoryModel", "catalogProductsModel", "categoryModel", "productListModel"):
+            model = self._extract_model(soup, var_name)
+            if model:
+                break
         if model:
             for product in model.get("Products", []):
                 name = (product.get("Title") or "").strip()
@@ -299,19 +390,22 @@ class NeptunKSScraper(BaseScraper):
                 category = product.get("Category") or model.get("Category")
                 if isinstance(category, dict):
                     category_slug = category.get("Url") or category.get("url")
-                product_slug = product.get("Url") or product.get("url")
+                product_slug = product.get("Url") or product.get("url") or product.get("Slug")
+                product_url = None
                 if product_slug:
-                    if product_slug.startswith(("http://", "https://", "/")):
-                        product_url = normalize_url(product_slug, "https://www.neptun-ks.com")
-                    elif category_slug:
+                    if category_slug and not product_slug.startswith(("http://", "https://", "/")):
                         product_url = f"https://www.neptun-ks.com/categories/{category_slug}/{product_slug}"
                     else:
                         product_url = normalize_url(product_slug, "https://www.neptun-ks.com")
-                else:
+                if not product_url:
                     product_url = url
+
                 image_urls = self._extract_images_from_model(product)
                 if not image_urls and product_url:
+                    # Prefer fetching the product page to grab the canonical gallery.
                     image_urls = self._extract_gallery_images(product_url)
+                if not image_urls:
+                    image_urls = self._extract_images_from_dom(soup)
                 image_url = image_urls[0] if image_urls else None
                 sku = slugify_name(name)
                 yield ScrapedItem(
@@ -348,6 +442,21 @@ class NeptunKSScraper(BaseScraper):
             image_urls.extend(self._extract_images_from_tag(img_el))
             source_el = card.select_one("source")
             image_urls.extend(self._extract_images_from_tag(source_el))
+            # Angular templates often store the real URL in ng-src/data-ng-src.
+            for tag in (img_el, source_el):
+                if not tag:
+                    continue
+                for attr in ("ng-src", "data-ng-src"):
+                    val = tag.get(attr)
+                    if val:
+                        normalized = normalize_url(val, "https://www.neptun-ks.com")
+                        if normalized:
+                            image_urls.append(normalized)
+            # Also inspect any inline data-gallery payload on the image itself.
+            for attr_name in ("data-gallery", "data-images", "data-pictures", "data-thumbs"):
+                raw = img_el.get(attr_name) if img_el else None
+                if raw:
+                    image_urls.extend(self._extract_images_from_payload(raw))
             for attr_name in (
                 "data-images",
                 "data-gallery",
@@ -376,6 +485,8 @@ class NeptunKSScraper(BaseScraper):
                     image_urls.extend(self._extract_images_from_payload(raw))
             if not image_urls and product_url:
                 image_urls = self._extract_gallery_images(product_url)
+            if not image_urls:
+                image_urls = self._extract_images_from_dom(soup)
             image_urls = dedupe_urls(image_urls)
             image_url = image_urls[0] if image_urls else None
             sku = slugify_name(name)
@@ -390,3 +501,55 @@ class NeptunKSScraper(BaseScraper):
                 image_url=image_url,
                 image_urls=image_urls or None,
             )
+
+    def _parse_category_details(self, soup, url):
+        node = soup.select_one("#angularApp")
+        if not node:
+            return []
+        raw = node.get("data-categorydetails")
+        if not raw:
+            return []
+        try:
+            payload = json.loads(html.unescape(raw))
+        except Exception:
+            return []
+        products = payload.get("Products") or []
+        items: list[ScrapedItem] = []
+        for product in products:
+            name = (product.get("Title") or "").strip()
+            if not name or "iphone" not in name.lower() or looks_like_accessory(name):
+                continue
+            price = product.get("ActualPrice") or product.get("DiscountPrice") or product.get("RegularPrice")
+            if price is None:
+                continue
+            currency = product.get("Currency") or "EUR"
+            product_slug = product.get("Url") or product.get("url") or ""
+            product_url = normalize_url(product_slug, "https://www.neptun-ks.com") if product_slug else url
+
+            images: list[str] = []
+            thumb = product.get("Thumbnail")
+            if thumb:
+                images.append(thumb)
+            imgs = product.get("Images") or []
+            if isinstance(imgs, list):
+                images.extend(imgs)
+            images = dedupe_urls([normalize_url(img, "https://www.neptun-ks.com") for img in images if img])
+            image_url = images[0] if images else None
+
+            manufacturer = product.get("Manufacturer") or {}
+            brand = manufacturer.get("Name") if isinstance(manufacturer, dict) else None
+
+            items.append(
+                ScrapedItem(
+                    sku=slugify_name(name),
+                    name=name,
+                    price=float(price),
+                    currency=currency,
+                    product_url=product_url,
+                    in_stock=True,
+                    brand=brand or "Apple",
+                    image_url=image_url,
+                    image_urls=images or None,
+                )
+            )
+        return items
