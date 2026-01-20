@@ -80,6 +80,12 @@ def saved_ui():
     return FileResponse(saved_file)
 
 
+@app.get("/profile")
+def profile_ui():
+    profile_file = STATIC_DIR / "profile.html"
+    return FileResponse(profile_file)
+
+
 @app.get("/dashboard")
 def dashboard_ui():
     dashboard_file = STATIC_DIR / "dashboard.html"

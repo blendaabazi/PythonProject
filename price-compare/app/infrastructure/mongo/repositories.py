@@ -279,3 +279,38 @@ class MongoUserRepository(UserRepository):
             role=doc.get("role", "user"),
             created_at=created_at,
         )
+
+    def update(self, user: User) -> User:
+        if not user.id:
+            raise RepositoryError("User id required")
+        try:
+            updated = self.collection.find_one_and_update(
+                {"_id": _object_id(user.id)},
+                {
+                    "$set": {
+                        "email": user.email,
+                        "password_hash": user.password_hash,
+                        "name": user.name,
+                        "role": user.role or "user",
+                    }
+                },
+                return_document=ReturnDocument.AFTER,
+            )
+            if not updated:
+                raise RepositoryError("User not found")
+            created_at = updated.get("created_at") or datetime.now(timezone.utc)
+            return User(
+                id=str(updated["_id"]),
+                email=updated["email"],
+                password_hash=updated["password_hash"],
+                name=updated.get("name"),
+                role=updated.get("role", "user"),
+                created_at=created_at,
+            )
+        except DuplicateKeyError as exc:
+            raise RepositoryError("User already exists") from exc
+        except RepositoryError:
+            raise
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("User update failed: %s", exc)
+            raise RepositoryError from exc

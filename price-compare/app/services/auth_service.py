@@ -101,3 +101,36 @@ class AuthService:
         if not verify_password(password, user.password_hash):
             return None
         return user
+
+    def update_profile(
+        self,
+        current_email: str,
+        current_password: str,
+        email: str,
+        name: Optional[str] = None,
+        new_password: Optional[str] = None,
+    ) -> User:
+        normalized_current = current_email.strip().lower()
+        user = self._user_repo.get_by_email(normalized_current)
+        if not user:
+            raise ValueError("User not found")
+        if not verify_password(current_password, user.password_hash):
+            raise ValueError("Invalid credentials")
+        normalized_email = email.strip().lower()
+        if not normalized_email:
+            raise ValueError("Email required")
+        if user.email == ADMIN_EMAIL and normalized_email != ADMIN_EMAIL:
+            raise ValueError("Admin account is predefined")
+        if normalized_email != user.email:
+            if normalized_email == ADMIN_EMAIL:
+                raise ValueError("Admin account is predefined")
+            if self._user_repo.get_by_email(normalized_email):
+                raise ValueError("User already exists")
+            user.email = normalized_email
+        normalized_name = name.strip() if name else None
+        if normalized_name == "":
+            normalized_name = None
+        user.name = normalized_name
+        if new_password:
+            user.password_hash = hash_password(new_password)
+        return self._user_repo.update(user)

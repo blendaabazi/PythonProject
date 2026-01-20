@@ -69,3 +69,7 @@ class UserRepository(abc.ABC):
     @abc.abstractmethod
     def get_by_email(self, email: str) -> Optional[User]:
         """Fetch a user by email."""
+
+    @abc.abstractmethod
+    def update(self, user: User) -> User:
+        """Update an existing user and return the updated instance."""
