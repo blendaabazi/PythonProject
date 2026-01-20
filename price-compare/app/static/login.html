@@ -90,6 +90,60 @@
       setAuthState(user);
     }
 
+    function savedKeyFor(user) {
+      const email = user && user.email ? String(user.email).toLowerCase() : "";
+      return email ? `pc_saved_${email}` : "pc_saved_guest";
+    }
+
+    function loadSavedItems(user) {
+      const raw = localStorage.getItem(savedKeyFor(user));
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .map((item) => {
+              if (typeof item === "string") return { sku: item, name: item };
+              if (item && item.sku) return { sku: item.sku, name: item.name || item.sku };
+              return null;
+            })
+            .filter(Boolean);
+        }
+      } catch (err) {
+        // ignore
+      }
+      return [];
+    }
+
+    function persistSaved(items, user) {
+      localStorage.setItem(savedKeyFor(user), JSON.stringify(items));
+    }
+
+    function applyPendingSave(user) {
+      if (!user) return;
+      const raw = localStorage.getItem("pc_pending_save");
+      if (!raw) return;
+      try {
+        const pending = JSON.parse(raw);
+        if (!pending || !pending.sku) return;
+        const items = loadSavedItems(user);
+        const exists = items.some((i) => i.sku === pending.sku);
+        if (!exists) {
+          items.push({
+            sku: pending.sku,
+            name: pending.name || pending.sku,
+            image_url: pending.image_url || "",
+            product_url: pending.product_url || "",
+          });
+          persistSaved(items, user);
+        }
+      } catch (err) {
+        // ignore parse errors
+      } finally {
+        localStorage.removeItem("pc_pending_save");
+      }
+    }
+
     function clearUser() {
       localStorage.removeItem(storageKey);
       setAuthState(null);
@@ -127,8 +181,13 @@
       try {
         const user = await postJson("/auth/login", payload);
         saveUser(user);
+        applyPendingSave(user);
         setStatus("Login ok.");
-        window.location.href = "/";
+        const next = localStorage.getItem("pc_next") || "/";
+        localStorage.removeItem("pc_next");
+        // Update saved count in navbar on redirect target by storing a hint.
+        localStorage.setItem("pc_saved_notify", "1");
+        window.location.href = next;
       } catch (err) {
         setStatus(err.message || "Login failed", true);
       }

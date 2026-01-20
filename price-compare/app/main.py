@@ -74,6 +74,12 @@ def register_ui():
     return FileResponse(register_file)
 
 
+@app.get("/saved")
+def saved_ui():
+    saved_file = STATIC_DIR / "saved.html"
+    return FileResponse(saved_file)
+
+
 @app.get("/dashboard")
 def dashboard_ui():
     dashboard_file = STATIC_DIR / "dashboard.html"

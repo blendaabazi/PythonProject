@@ -916,6 +916,28 @@ a.pill {
   font-size: 11px;
 }
 
+.saved-row {
+  align-items: center;
+  gap: 12px;
+}
+
+.saved-thumb-wrap {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saved-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f5f7fb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
 .compare-table {
   border-radius: 14px;
   border: 1px solid var(--border);
