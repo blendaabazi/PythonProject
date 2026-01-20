@@ -20,6 +20,7 @@
     <div class="pills">
       <span class="pill accent">Live from Atlas</span>
       <a class="pill ghost" href="/compare-ui">Compare view</a>
+      <a id="dashboardLink" class="pill ghost" href="/dashboard">Dashboard</a>
       <a id="loginLink" class="pill ghost" href="/login">Login</a>
       <a id="registerLink" class="pill ghost" href="/register">Register</a>
       <button id="logoutBtn" class="pill ghost button-pill" type="button">Logout</button>
@@ -98,6 +99,7 @@
     const compareSelectedBtn = document.getElementById("compareSelectedBtn");
     const loginLink = document.getElementById("loginLink");
     const registerLink = document.getElementById("registerLink");
+    const dashboardLink = document.getElementById("dashboardLink");
     const logoutBtn = document.getElementById("logoutBtn");
     const logoutModal = document.getElementById("logoutModal");
     const logoutCancel = document.getElementById("logoutCancel");
@@ -386,6 +388,8 @@
 
     logoutConfirm.addEventListener("click", () => {
       localStorage.removeItem(storageKey);
+      setStatus("Logged out.");
+      applyAuthUI(null);
       window.location.reload();
     });
 
@@ -416,13 +420,24 @@
       }
     });
 
+    function applyAuthUI(user) {
+      const isLoggedIn = !!user;
+      loginLink.style.display = isLoggedIn ? "none" : "inline-flex";
+      registerLink.style.display = isLoggedIn ? "none" : "inline-flex";
+      logoutBtn.style.display = isLoggedIn ? "inline-flex" : "none";
+      dashboardLink.style.display = isLoggedIn && user.role === "admin" ? "inline-flex" : "none";
+    }
+
     const storedUser = localStorage.getItem(storageKey);
     if (storedUser) {
-      loginLink.style.display = "none";
-      registerLink.style.display = "none";
-      logoutBtn.style.display = "inline-flex";
+      try {
+        const parsed = JSON.parse(storedUser);
+        applyAuthUI(parsed);
+      } catch (err) {
+        applyAuthUI(null);
+      }
     } else {
-      logoutBtn.style.display = "none";
+      applyAuthUI(null);
     }
 
     // Initial load filtered to iPhone

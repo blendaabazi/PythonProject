@@ -74,6 +74,12 @@ def register_ui():
     return FileResponse(register_file)
 
 
+@app.get("/dashboard")
+def dashboard_ui():
+    dashboard_file = STATIC_DIR / "dashboard.html"
+    return FileResponse(dashboard_file)
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -14,6 +14,7 @@ def _to_user_response(user: User) -> UserResponse:
         id=user.id or "",
         email=user.email,
         name=user.name,
+        role=user.role,
         created_at=user.created_at,
     )
 

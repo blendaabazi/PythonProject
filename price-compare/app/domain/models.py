@@ -47,5 +47,6 @@ class User:
     email: str
     password_hash: str
     name: Optional[str] = None
+    role: str = "user"
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: Optional[str] = None

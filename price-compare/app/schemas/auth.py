@@ -19,4 +19,5 @@ class UserResponse(BaseModel):
     id: str
     email: str
     name: Optional[str] = None
+    role: str
     created_at: datetime

@@ -255,6 +255,7 @@ class MongoUserRepository(UserRepository):
                 "email": user.email,
                 "password_hash": user.password_hash,
                 "name": user.name,
+                "role": user.role or "user",
                 "created_at": user.created_at,
             }
             inserted = self.collection.insert_one(doc)
@@ -275,5 +276,6 @@ class MongoUserRepository(UserRepository):
             email=doc["email"],
             password_hash=doc["password_hash"],
             name=doc.get("name"),
+            role=doc.get("role", "user"),
             created_at=created_at,
         )
