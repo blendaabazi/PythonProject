@@ -1,8 +1,9 @@
-﻿from pydantic import Field, AliasChoices
+import os
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=os.getenv("ENV_FILE", ".env"), extra="ignore")
 
     mongo_uri: str = Field(
         default="mongodb://localhost:27017",
@@ -35,6 +36,10 @@ class Settings(BaseSettings):
     scrape_delay_sec: float = Field(
         default=0.0,
         validation_alias=AliasChoices("SCRAPE_DELAY_SEC"),
+    )
+    auth_password_iterations: int = Field(
+        default=120000,
+        validation_alias=AliasChoices("AUTH_PASSWORD_ITERATIONS"),
     )
 
 settings = Settings()

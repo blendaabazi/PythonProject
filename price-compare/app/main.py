@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
-from .api import products, shops, prices, compare
+from .api import products, shops, prices, compare, auth
 from .api.error_handlers import register_exception_handlers
 from .config import settings
 from .database import ensure_indexes
@@ -30,7 +30,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        scheduler.shutdown()
+        if scheduler.running:
+            scheduler.shutdown()
 
 
 app = FastAPI(title="KS Price Compare", lifespan=lifespan)
@@ -39,6 +40,7 @@ app.include_router(products.router)
 app.include_router(shops.router)
 app.include_router(prices.router)
 app.include_router(compare.router)
+app.include_router(auth.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -52,6 +54,24 @@ def root():
 def compare_ui():
     compare_file = STATIC_DIR / "compare.html"
     return FileResponse(compare_file)
+
+
+@app.get("/auth-ui")
+def auth_ui():
+    auth_file = STATIC_DIR / "login.html"
+    return FileResponse(auth_file)
+
+
+@app.get("/login")
+def login_ui():
+    login_file = STATIC_DIR / "login.html"
+    return FileResponse(login_file)
+
+
+@app.get("/register")
+def register_ui():
+    register_file = STATIC_DIR / "register.html"
+    return FileResponse(register_file)
 
 
 @app.get("/health")

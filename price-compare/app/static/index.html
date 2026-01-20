@@ -20,7 +20,10 @@
     <div class="pills">
       <span class="pill accent">Live from Atlas</span>
       <a class="pill ghost" href="/compare-ui">Compare view</a>
-      <span class="pill ghost">FastAPI + BS4</span>
+      <a id="loginLink" class="pill ghost" href="/login">Login</a>
+      <a id="registerLink" class="pill ghost" href="/register">Register</a>
+      <button id="logoutBtn" class="pill ghost button-pill" type="button">Logout</button>
+      
     </div>
   </header>
 
@@ -70,6 +73,17 @@
     <div>UI insp. Vercel clean + Made for KS market</div>
   </footer>
 
+  <div id="logoutModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal">
+      <div class="modal-title">Confirm logout</div>
+      <p>Are you sure you want to log out?</p>
+      <div class="modal-actions">
+        <button id="logoutCancel" class="ghost" type="button">Cancel</button>
+        <button id="logoutConfirm" type="button">Log out</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const productsEl = document.getElementById("products");
     const pricesEl = document.getElementById("prices");
@@ -82,8 +96,15 @@
     const refreshBtn = document.getElementById("refreshBtn");
     const compareModeBtn = document.getElementById("compareModeBtn");
     const compareSelectedBtn = document.getElementById("compareSelectedBtn");
+    const loginLink = document.getElementById("loginLink");
+    const registerLink = document.getElementById("registerLink");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const logoutModal = document.getElementById("logoutModal");
+    const logoutCancel = document.getElementById("logoutCancel");
+    const logoutConfirm = document.getElementById("logoutConfirm");
     let compareMode = false;
     const selectedSkus = new Set();
+    const storageKey = "pc_user";
 
     const apiBase = "";
     const storeNames = {
@@ -345,6 +366,41 @@
       openCompareSelected();
     });
 
+    function openLogoutModal() {
+      logoutModal.classList.add("is-open");
+      logoutModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeLogoutModal() {
+      logoutModal.classList.remove("is-open");
+      logoutModal.setAttribute("aria-hidden", "true");
+    }
+
+    logoutBtn.addEventListener("click", () => {
+      openLogoutModal();
+    });
+
+    logoutCancel.addEventListener("click", () => {
+      closeLogoutModal();
+    });
+
+    logoutConfirm.addEventListener("click", () => {
+      localStorage.removeItem(storageKey);
+      window.location.reload();
+    });
+
+    logoutModal.addEventListener("click", (event) => {
+      if (event.target === logoutModal) {
+        closeLogoutModal();
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && logoutModal.classList.contains("is-open")) {
+        closeLogoutModal();
+      }
+    });
+
     searchBtn.addEventListener("click", () => {
       loadProducts(searchInput.value.trim());
     });
@@ -359,6 +415,15 @@
         loadProducts(searchInput.value.trim());
       }
     });
+
+    const storedUser = localStorage.getItem(storageKey);
+    if (storedUser) {
+      loginLink.style.display = "none";
+      registerLink.style.display = "none";
+      logoutBtn.style.display = "inline-flex";
+    } else {
+      logoutBtn.style.display = "none";
+    }
 
     // Initial load filtered to iPhone
     loadProducts("iphone");

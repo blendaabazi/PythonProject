@@ -1,11 +1,12 @@
 """Dependency wiring for FastAPI and background jobs."""
 
 from functools import lru_cache
-from .infrastructure.mongo.connection import get_database
+from .infrastructure.mongo.connection import get_database, get_auth_database
 from .infrastructure.mongo.repositories import (
     MongoProductRepository,
     MongoShopRepository,
     MongoPriceRepository,
+    MongoUserRepository,
 )
 from .infrastructure.caching import CachingPriceRepository
 from .services.scraping.factory import ScraperFactory
@@ -27,6 +28,11 @@ def get_shop_repo():
 @lru_cache(maxsize=1)
 def get_price_repo():
     return CachingPriceRepository(MongoPriceRepository(get_database()))
+
+
+@lru_cache(maxsize=1)
+def get_user_repo():
+    return MongoUserRepository(get_auth_database())
 
 
 @lru_cache(maxsize=1)

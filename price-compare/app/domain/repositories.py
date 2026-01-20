@@ -1,6 +1,6 @@
 import abc
-from typing import Iterable, List, Optional
-from .models import Product, Shop, PricePoint
+from typing import List, Optional
+from .models import Product, Shop, PricePoint, User
 
 
 class RepositoryError(Exception):
@@ -59,3 +59,13 @@ class PriceRepository(abc.ABC):
     @abc.abstractmethod
     def latest_prices_for_products(self, product_skus: List[str]) -> dict[str, List[PricePoint]]:
         """Return latest price points per store for each product sku."""
+
+
+class UserRepository(abc.ABC):
+    @abc.abstractmethod
+    def create(self, user: User) -> str:
+        """Persist a new user and return its id."""
+
+    @abc.abstractmethod
+    def get_by_email(self, email: str) -> Optional[User]:
+        """Fetch a user by email."""

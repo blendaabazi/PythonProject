@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | KS Price Compare</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
+</head>
+<body class="auth-body">
+  <div class="auth-bg"></div>
+
+  <main class="auth-container auth-grid">
+    <section class="auth-brand">
+      <div class="auth-logo">KS Price Compare</div>
+      <div class="auth-kicker">Price intelligence</div>
+      <h1>Login to continue.</h1>
+      <p class="auth-lede">
+        Sign in to save comparisons, track favorites, and get price alerts.
+      </p>
+      <ul class="auth-meta">
+        <li>Live prices from top retailers</li>
+        <li>Alerts when prices drop</li>
+        <li>Saved comparisons</li>
+      </ul>
+    </section>
+
+    <section class="auth-card narrow login-card">
+      <div class="auth-card-header">
+        <h2>Login</h2>
+        <p>Sign in with your email and password.</p>
+      </div>
+
+      <div id="authState" class="auth-state">Not logged in.</div>
+
+      <form id="loginForm" class="auth-form">
+        <label class="auth-field">
+          <span>Email</span>
+          <input class="auth-input" name="email" type="email" autocomplete="email" required />
+        </label>
+        <label class="auth-field">
+          <span>Password</span>
+          <input class="auth-input" name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button class="auth-btn primary" type="submit">Log In</button>
+      </form>
+
+      <div class="auth-divider"><span>or</span></div>
+      <a class="auth-btn secondary" href="/register">Create new account</a>
+
+      <div id="authStatus" class="auth-status"></div>
+      <button id="logoutBtn" class="auth-btn ghost" type="button">Log out</button>
+
+      <p class="auth-legal">
+        By continuing you agree to the terms. This is a demo UI without tokens.
+      </p>
+    </section>
+  </main>
+
+  <footer class="auth-footer">
+    <a href="/">Home</a>
+    <a href="/compare-ui">Compare view</a>
+    <span>Auth API: /auth/login</span>
+  </footer>
+
+  <script>
+    const loginForm = document.getElementById("loginForm");
+    const statusEl = document.getElementById("authStatus");
+    const stateEl = document.getElementById("authState");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const storageKey = "pc_user";
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text || "";
+      statusEl.className = isError ? "auth-status error" : "auth-status";
+    }
+
+    function setAuthState(user) {
+      if (!user) {
+        stateEl.textContent = "Not logged in.";
+        logoutBtn.classList.remove("visible");
+        return;
+      }
+      const label = user.name ? `${user.name} (${user.email})` : user.email;
+      stateEl.textContent = `Logged in as ${label}.`;
+      logoutBtn.classList.add("visible");
+    }
+
+    function saveUser(user) {
+      localStorage.setItem(storageKey, JSON.stringify(user));
+      setAuthState(user);
+    }
+
+    function clearUser() {
+      localStorage.removeItem(storageKey);
+      setAuthState(null);
+    }
+
+    async function postJson(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        return response.json();
+      }
+      let detail = "Request failed";
+      try {
+        const data = await response.json();
+        if (data && data.detail) {
+          detail = data.detail;
+        }
+      } catch (err) {
+        // ignore invalid json
+      }
+      throw new Error(detail);
+    }
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setStatus("Logging in...");
+      const formData = new FormData(loginForm);
+      const payload = {
+        email: String(formData.get("email") || ""),
+        password: String(formData.get("password") || ""),
+      };
+      try {
+        const user = await postJson("/auth/login", payload);
+        saveUser(user);
+        setStatus("Login ok.");
+        window.location.href = "/";
+      } catch (err) {
+        setStatus(err.message || "Login failed", true);
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      clearUser();
+      setStatus("Logged out.");
+    });
+
+    const storedUser = localStorage.getItem(storageKey);
+    if (storedUser) {
+      try {
+        setAuthState(JSON.parse(storedUser));
+      } catch (err) {
+        clearUser();
+      }
+    }
+  </script>
+</body>
+</html>

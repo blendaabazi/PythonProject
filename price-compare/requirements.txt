@@ -8,5 +8,6 @@ pydantic
 pydantic-settings
 apscheduler
 python-dotenv
+httpx
 pytest
 ruff

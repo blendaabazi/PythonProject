@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from .enums import ProductCategory, ShopName
 
@@ -36,5 +36,16 @@ class PricePoint:
     currency: str
     product_url: str
     in_stock: bool
-    timestamp: datetime = field(default_factory=lambda: datetime.now(datetime.UTC))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    id: Optional[str] = None
+
+
+@dataclass(slots=True)
+class User:
+    """Domain model for a registered user."""
+
+    email: str
+    password_hash: str
+    name: Optional[str] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     id: Optional[str] = None

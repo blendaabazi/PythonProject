@@ -1,14 +1,17 @@
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 from bson import ObjectId
 from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from pymongo.database import Database
 from ...domain.enums import ProductCategory, ShopName
-from ...domain.models import Product, Shop, PricePoint
+from ...domain.models import Product, Shop, PricePoint, User
 from ...domain.repositories import (
     ProductRepository,
     ShopRepository,
     PriceRepository,
+    UserRepository,
     RepositoryError,
 )
 
@@ -239,3 +242,38 @@ class MongoPriceRepository(PriceRepository):
             offers.sort(key=lambda p: p.price)
             result[doc["_id"]] = offers
         return result
+
+
+class MongoUserRepository(UserRepository):
+    def __init__(self, db: Database):
+        self.collection = db["users"]
+        self.collection.create_index("email", unique=True)
+
+    def create(self, user: User) -> str:
+        try:
+            doc = {
+                "email": user.email,
+                "password_hash": user.password_hash,
+                "name": user.name,
+                "created_at": user.created_at,
+            }
+            inserted = self.collection.insert_one(doc)
+            return str(inserted.inserted_id)
+        except DuplicateKeyError as exc:
+            raise RepositoryError("User already exists") from exc
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("User create failed: %s", exc)
+            raise RepositoryError from exc
+
+    def get_by_email(self, email: str) -> Optional[User]:
+        doc = self.collection.find_one({"email": email})
+        if not doc:
+            return None
+        created_at = doc.get("created_at") or datetime.now(timezone.utc)
+        return User(
+            id=str(doc["_id"]),
+            email=doc["email"],
+            password_hash=doc["password_hash"],
+            name=doc.get("name"),
+            created_at=created_at,
+        )
