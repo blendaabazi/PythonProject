@@ -87,6 +87,11 @@ def root():
     return render_page("Apple Price Compare KS", "/static/pages/index.js")
 
 
+@app.get("/product/{sku}")
+def product_ui(sku: str):
+    return render_page("Product | KS Price Compare", "/static/pages/product.js")
+
+
 @app.get("/compare-ui")
 def compare_ui():
     return render_page("KS Price Compare - Gjirafa vs Neptun", "/static/pages/compare.js")

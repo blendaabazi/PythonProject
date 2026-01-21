@@ -303,6 +303,9 @@ const storageKey = "pc_user";
         localStorage.setItem(photoKeyFor(currentUser.email), dataUrl);
         applyPhoto(dataUrl);
         setStatus("Photo updated.");
+        if (window.HeaderUI && window.HeaderUI.refresh) {
+          window.HeaderUI.refresh();
+        }
       };
       reader.readAsDataURL(file);
     });
@@ -316,6 +319,9 @@ const storageKey = "pc_user";
       applyPhoto(null);
       photoInput.value = "";
       setStatus("Photo removed.");
+      if (window.HeaderUI && window.HeaderUI.refresh) {
+        window.HeaderUI.refresh();
+      }
     });
 
     profileForm.addEventListener("submit", async (event) => {

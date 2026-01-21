@@ -256,8 +256,7 @@ const productsEl = document.getElementById("products");
       productsEl.querySelectorAll(".product-card").forEach((card) => {
         const sku = card.dataset.sku;
         card.addEventListener("click", () => {
-          const name = card.dataset.name;
-          loadPrices(sku, name);
+          window.location.href = `/product/${encodeURIComponent(sku)}`;
         });
         card.querySelectorAll(".price-chip[href]").forEach((link) => {
           link.addEventListener("click", (event) => {

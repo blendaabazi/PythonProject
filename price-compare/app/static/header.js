@@ -25,6 +25,39 @@
     return email ? `pc_saved_${email}` : "pc_saved_guest";
   }
 
+  function photoKeyFor(user) {
+    const email = user && user.email ? String(user.email).toLowerCase() : "";
+    return email ? `pc_profile_photo_${email}` : "pc_profile_photo_guest";
+  }
+
+  function loadProfilePhoto(user) {
+    if (!user) return null;
+    const raw = localStorage.getItem(photoKeyFor(user));
+    if (!raw) return null;
+    return String(raw).startsWith("data:image") ? raw : null;
+  }
+
+  function applyUserAvatar(user) {
+    if (!elements || !elements.userMenuAvatar) return;
+    const label = user ? user.name || user.email || "User" : "User";
+    const trimmed = String(label).trim();
+    const initial = trimmed ? trimmed[0].toUpperCase() : "U";
+    const photo = loadProfilePhoto(user);
+    if (photo) {
+      elements.userMenuAvatar.textContent = "";
+      elements.userMenuAvatar.style.backgroundImage = `url("${photo}")`;
+      elements.userMenuAvatar.style.backgroundSize = "cover";
+      elements.userMenuAvatar.style.backgroundPosition = "center";
+      elements.userMenuAvatar.style.color = "transparent";
+    } else {
+      elements.userMenuAvatar.textContent = initial;
+      elements.userMenuAvatar.style.backgroundImage = "";
+      elements.userMenuAvatar.style.backgroundSize = "";
+      elements.userMenuAvatar.style.backgroundPosition = "";
+      elements.userMenuAvatar.style.color = "";
+    }
+  }
+
   function normalizeSaved(raw) {
     if (!raw) return [];
     try {
@@ -80,6 +113,7 @@
       if (elements.userMenuDashboard) {
         elements.userMenuDashboard.style.display = "none";
       }
+      applyUserAvatar(null);
       closeUserMenu();
       return;
     }
@@ -87,10 +121,7 @@
     if (elements.userMenuName) {
       elements.userMenuName.textContent = label;
     }
-    if (elements.userMenuAvatar) {
-      const trimmed = String(label).trim();
-      elements.userMenuAvatar.textContent = trimmed ? trimmed[0].toUpperCase() : "U";
-    }
+    applyUserAvatar(user);
     elements.userMenu.style.display = "inline-flex";
     if (elements.userMenuDashboard) {
       elements.userMenuDashboard.style.display = user.role === "admin" ? "flex" : "none";
