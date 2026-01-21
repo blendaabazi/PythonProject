@@ -246,10 +246,24 @@ h1 {
 }
 
 .controls {
+  display: grid;
+  gap: 12px;
+}
+
+.controls-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   align-items: center;
+}
+
+.controls-row.secondary {
+  align-items: center;
+}
+
+.controls-row.secondary .status {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .controls input {
@@ -263,10 +277,42 @@ h1 {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.controls select {
+  min-width: 190px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
 .controls input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.controls select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+@media (max-width: 980px) {
+  .controls-row {
+    flex-wrap: wrap;
+  }
+
+  .controls-row.primary button,
+  .controls-row.primary select,
+  .controls-row.secondary select {
+    width: 100%;
+  }
+
+  .controls-row.secondary .status {
+    margin-left: 0;
+  }
 }
 
 button {

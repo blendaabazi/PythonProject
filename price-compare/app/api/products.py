@@ -2,6 +2,7 @@ from fastapi import APIRouter, Query, Depends, HTTPException
 from ..dependencies import get_product_repo, get_comparison_service, get_price_repo
 from ..schemas.models import ProductResponse, PriceResponse, StorePriceSummary
 from ..domain.models import Product, PricePoint
+from ..services.scraping.base import looks_like_accessory
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -46,6 +47,8 @@ def list_products(
     offer_map = price_repo.latest_prices_for_products([p.sku for p in products])
     responses = []
     for product in products:
+        if looks_like_accessory(product.name or ""):
+            continue
         offers = offer_map.get(product.sku, [])
         offers = [offer for offer in offers if offer.in_stock]
         if not offers:
@@ -73,6 +76,8 @@ def product_detail(
     product = product_repo.get_by_sku(sku)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    if looks_like_accessory(product.name or ""):
+        raise HTTPException(status_code=404, detail="Product not found")
     return _to_product_response(product)
 
 
@@ -83,6 +88,8 @@ def product_prices(
 ):
     product, offers, _ = comparison_service.compare(sku)
     if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if looks_like_accessory(product.name or ""):
         raise HTTPException(status_code=404, detail="Product not found")
     return [_to_price_response(price) for price in offers]
 
@@ -95,6 +102,8 @@ def product_price_history(
 ):
     product, _, _ = comparison_service.compare(sku)
     if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if looks_like_accessory(product.name or ""):
         raise HTTPException(status_code=404, detail="Product not found")
     history = comparison_service.history(sku, limit=limit)
     return [_to_price_response(price) for price in history]

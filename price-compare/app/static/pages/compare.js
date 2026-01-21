@@ -9,30 +9,30 @@ app.innerHTML = `
     <section class="hero glass">
       <div>
         <p class="eyebrow">Compare</p>
-        <h1>Krahaso cmimet nga Gjirafa dhe Neptun.</h1>
+        <h1>Compare prices from Gjirafa and Neptun.</h1>
         <p class="lede">
-          Zgjidh produktet per krahasim dhe shiko cmimin me te ulet dhe kursimin.
+          Select products to compare and see the lowest price and savings.
         </p>
         <div class="controls">
-          <input id="searchInput" type="search" placeholder='Kerko p.sh. "iphone 17"' />
-          <button id="searchBtn">Krahaso</button>
-          <button id="resetBtn" class="ghost">Rifresko</button>
+          <input id="searchInput" type="search" placeholder='Search e.g. "iphone 17"' />
+          <button id="searchBtn">Compare</button>
+          <button id="resetBtn" class="ghost">Refresh</button>
           <span id="status" class="status"></span>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Produkte te krahasuara</div>
+        <div class="stat-label">Compared products</div>
         <div class="stat-value" id="matchCount">-</div>
-        <div class="stat-foot" id="bestDeal">Shfaqet me i liri dhe kursimi</div>
+        <div class="stat-foot" id="bestDeal">Shows the cheapest option and savings</div>
       </div>
     </section>
 
     <section class="list glass">
       <div class="section-head">
-        <h2>Krahasimi i cmimeve</h2>
-        <span class="pill ghost">Vetem Gjirafa + Neptun</span>
+        <h2>Price comparison</h2>
+        <span class="pill ghost">Only Gjirafa + Neptun</span>
       </div>
-      <div id="results" class="compare-list empty">Duke ngarkuar...</div>
+      <div id="results" class="compare-list empty">Loading...</div>
     </section>
   </main>
 
@@ -133,7 +133,7 @@ const resultsEl = document.getElementById("results");
     }
 
     function formatMoney(entry) {
-      if (!entry) return "Jashte stock-ut";
+      if (!entry) return "Out of stock";
       const currency = (entry.currency || "EUR").toUpperCase();
       return `${formatNumber(entry.price)} ${currency}`;
     }
@@ -145,7 +145,7 @@ const resultsEl = document.getElementById("results");
 
     function renderPriceCell(entry, isBest) {
       if (!entry || entry.in_stock === false) {
-        return renderCell("Jashte stock-ut", "empty", true);
+        return renderCell("Out of stock", "empty", true);
       }
       return renderCell(formatMoney(entry), isBest ? "best" : "");
     }
@@ -159,7 +159,7 @@ const resultsEl = document.getElementById("results");
         return renderCell("-", "empty", true);
       }
       return renderCell(
-        `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Hap</a>`
+        `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">Open</a>`
       );
     }
 
@@ -167,7 +167,7 @@ const resultsEl = document.getElementById("results");
       if (!isBest) {
         return renderCell("-", "empty", true);
       }
-      return renderCell('<span class="compare-pill best">Me i lire</span>', "best");
+      return renderCell('<span class="compare-pill best">Cheapest</span>', "best");
     }
 
     function renderSavingsCell(isBest, discount, currency) {
@@ -175,7 +175,7 @@ const resultsEl = document.getElementById("results");
         return renderCell("-", "empty", true);
       }
       if (discount === null || discount === undefined) {
-        return renderCell("Pa krahasim", "empty", true);
+        return renderCell("No comparison", "empty", true);
       }
       const cur = (currency || "EUR").toUpperCase();
       return renderCell(`<span class="compare-pill save">${formatNumber(discount)} ${cur}</span>`, "save");
@@ -244,9 +244,9 @@ const resultsEl = document.getElementById("results");
     function renderRows(rows) {
       resultsEl.classList.remove("empty");
       if (!rows.length) {
-        resultsEl.innerHTML = "<div class='empty-note'>Asnje produkt i gjetur.</div>";
+        resultsEl.innerHTML = "<div class='empty-note'>No products found.</div>";
         matchCountEl.textContent = "0";
-        bestDealEl.textContent = "Nuk ka oferta nga Gjirafa ose Neptun.";
+        bestDealEl.textContent = "No offers from Gjirafa or Neptun.";
         return;
       }
       const bestRow = rows[0];
@@ -255,12 +255,12 @@ const resultsEl = document.getElementById("results");
       matchCountEl.textContent = rows.length;
       const discountText =
         bestRow.discount !== null && bestRow.discount !== undefined
-          ? ` | Kursim ${formatNumber(bestRow.discount)} ${(bestRow.currency || "EUR").toUpperCase()}`
+          ? ` | Savings ${formatNumber(bestRow.discount)} ${(bestRow.currency || "EUR").toUpperCase()}`
           : "";
-      bestDealEl.textContent = `Me i lire: ${bestName || bestRow.product.name} (${bestLabel}) ${formatMoney(bestRow.best)}${discountText}`;
+      bestDealEl.textContent = `Cheapest: ${bestName || bestRow.product.name} (${bestLabel}) ${formatMoney(bestRow.best)}${discountText}`;
 
       resultsEl.innerHTML = `
-        <div class="compare-sort">Renditur nga me i liri te me i shtrenjti</div>
+        <div class="compare-sort">Sorted from cheapest to most expensive</div>
         ${rows
           .map((row, idx) => {
             const isBest = idx === 0 && row.best;
@@ -295,7 +295,7 @@ const resultsEl = document.getElementById("results");
                     <span class="compare-store neptun">Neptun</span>
                   </div>
                   <div class="compare-table-row">
-                    <span class="compare-table-label">Cmimi aktual</span>
+                    <span class="compare-table-label">Current price</span>
                     ${renderPriceCell(row.gjirafa, gjirafaBest)}
                     ${renderPriceCell(row.neptun, neptunBest)}
                   </div>
@@ -305,12 +305,12 @@ const resultsEl = document.getElementById("results");
                     ${renderLinkCell(row.neptun)}
                   </div>
                   <div class="compare-table-row">
-                    <span class="compare-table-label">Me i lire</span>
+                    <span class="compare-table-label">Cheapest</span>
                     ${renderBestCell(gjirafaBest)}
                     ${renderBestCell(neptunBest)}
                   </div>
                   <div class="compare-table-row">
-                    <span class="compare-table-label">Kursimi</span>
+                    <span class="compare-table-label">Savings</span>
                     ${renderSavingsCell(gjirafaBest, row.discount, row.currency)}
                     ${renderSavingsCell(neptunBest, row.discount, row.currency)}
                   </div>
@@ -356,16 +356,16 @@ const resultsEl = document.getElementById("results");
         setStatus(`Loaded ${rows.length} products`);
       } catch (err) {
         console.error(err);
-        setStatus("Gabim ne krahasim", true);
-        resultsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan rezultatet.</div>";
+        setStatus("Comparison error", true);
+        resultsEl.innerHTML = "<div class='empty-note'>Results failed to load.</div>";
         matchCountEl.textContent = "0";
-        bestDealEl.textContent = "Nuk ka te dhena.";
+        bestDealEl.textContent = "No data.";
       }
     }
 
     async function loadCompareView({ query = "", sku = null } = {}) {
       setStatus("Loading...");
-      resultsEl.innerHTML = "<div class='empty-note'>Duke ngarkuar...</div>";
+      resultsEl.innerHTML = "<div class='empty-note'>Loading...</div>";
       try {
         if (sku) {
           const result = await fetchProductWithPrices(sku);
@@ -378,7 +378,7 @@ const resultsEl = document.getElementById("results");
           if (displayName) {
             searchInput.value = displayName;
           }
-          setStatus(`Gjetem oferta per ${displayName || "produktin"}`);
+          setStatus(`Found offers for ${displayName || "the product"}`);
           return;
         }
 
@@ -388,21 +388,21 @@ const resultsEl = document.getElementById("results");
         const data = await res.json();
         const rows = buildRowsFromProducts(data || []);
         if (!rows.length) {
-          setStatus("Asnje rezultat per kete kerkese", true);
-          resultsEl.innerHTML = "<div class='empty-note'>Asnje produkt i gjetur.</div>";
+          setStatus("No results for this search", true);
+          resultsEl.innerHTML = "<div class='empty-note'>No products found.</div>";
           matchCountEl.textContent = "0";
-          bestDealEl.textContent = "Nuk ka te dhena.";
+          bestDealEl.textContent = "No data.";
           return;
         }
         renderRows(rows);
         searchInput.value = simplifyProductName(searchTerm) || searchTerm;
-        setStatus(`Gjetem ${rows.length} rezultate`);
+        setStatus(`Found ${rows.length} results`);
       } catch (err) {
         console.error(err);
-        setStatus("Gabim ne krahasim", true);
-        resultsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan rezultatet.</div>";
+        setStatus("Comparison error", true);
+        resultsEl.innerHTML = "<div class='empty-note'>Results failed to load.</div>";
         matchCountEl.textContent = "0";
-        bestDealEl.textContent = "Nuk ka te dhena.";
+        bestDealEl.textContent = "No data.";
       }
     }
 

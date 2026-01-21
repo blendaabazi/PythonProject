@@ -189,7 +189,7 @@
           <div class="dot"></div>
           <div>
             <div class="title">KS Price Compare</div>
-            <div class="subtitle">Apple iPhone in Kosove</div>
+            <div class="subtitle">Apple iPhone in Kosovo</div>
           </div>
         </div>
         <div class="pills">

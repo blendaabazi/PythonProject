@@ -9,40 +9,52 @@ app.innerHTML = `
     <section class="hero glass">
       <div>
         <p class="eyebrow">Price Intelligence</p>
-        <h1>Gjej oferten me te lire per iPhone.</h1>
-        <p class="lede">Krahaso cmimet nga Neptun, GjirafaMall, Aztech dhe ShopAz ne kohe reale.</p>
+        <h1>Find the lowest iPhone deal.</h1>
+        <p class="lede">Compare prices from Neptun, GjirafaMall, Aztech, and ShopAz in real time.</p>
         <div class="controls">
-          <input id="searchInput" type="search" placeholder='Kerko p.sh. "iphone 15 pro max"' />
-          <button id="searchBtn">Kerko</button>
-          <button id="refreshBtn" class="ghost">Rifresko</button>
-          <button id="compareModeBtn" class="ghost compare-toggle">Krahaso</button>
-          <button id="compareSelectedBtn" class="ghost compare-selected" disabled>Krahaso te zgjedhurit</button>
-          <span id="status" class="status"></span>
+          <div class="controls-row primary">
+            <input id="searchInput" type="search" placeholder='Search e.g. "iphone 15 pro max"' />
+            <button id="searchBtn">Search</button>
+            <button id="refreshBtn" class="ghost">Refresh</button>
+          </div>
+          <div class="controls-row secondary">
+            <select id="storeFilter">
+              <option value="all">All stores</option>
+            </select>
+            <select id="sortSelect">
+              <option value="default">Sort: Default</option>
+              <option value="price-asc">Price: low to high</option>
+              <option value="price-desc">Price: high to low</option>
+              <option value="name-asc">Name: A-Z</option>
+              <option value="name-desc">Name: Z-A</option>
+            </select>
+            <span id="status" class="status"></span>
+          </div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Produkte</div>
+        <div class="stat-label">Products</div>
         <div class="stat-value" id="productCount">-</div>
-        <div class="stat-foot">Aktivizo "Krahaso" dhe zgjidh disa produkte</div>
+        <div class="stat-foot">Select a product to see offers</div>
       </div>
     </section>
 
     <section class="list glass">
       <div class="section-head">
-        <h2>iPhone nga providera te ndryshem</h2>
+        <h2>iPhone across providers</h2>
       </div>
-      <div id="products" class="product-grid empty">Duke ngarkuar...</div>
+      <div id="products" class="product-grid empty">Loading...</div>
     </section>
 
     <section class="panel glass">
       <div class="section-head">
         <div>
-          <p class="eyebrow">Oferta</p>
-          <h3 id="selectedProduct">Zgjidh nje produkt</h3>
+          <p class="eyebrow">Offers</p>
+          <h3 id="selectedProduct">Select a product</h3>
         </div>
         <div id="cheapest" class="pill ghost"></div>
       </div>
-      <div id="prices" class="prices empty">Asnje produkt i zgjedhur.</div>
+      <div id="prices" class="prices empty">No product selected.</div>
     </section>
   </main>
 
@@ -72,15 +84,14 @@ const productsEl = document.getElementById("products");
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
     const refreshBtn = document.getElementById("refreshBtn");
-    const compareModeBtn = document.getElementById("compareModeBtn");
-    const compareSelectedBtn = document.getElementById("compareSelectedBtn");
+    const storeFilter = document.getElementById("storeFilter");
+    const sortSelect = document.getElementById("sortSelect");
     const logoutModal = document.getElementById("logoutModal");
     const logoutCancel = document.getElementById("logoutCancel");
     const logoutConfirm = document.getElementById("logoutConfirm");
-    let compareMode = false;
-    const selectedSkus = new Set();
     const storageKey = "pc_user";
     let currentUser = null;
+    let allProducts = [];
 
     const apiBase = "";
     const storeNames = {
@@ -93,6 +104,30 @@ const productsEl = document.getElementById("products");
 
     function storeLabelFromCode(code) {
       return storeNames[code] || code || "Unknown";
+    }
+
+    function updateStoreFilterOptions(items) {
+      const current = storeFilter.value;
+      const storeCodes = new Set();
+      items.forEach((item) => {
+        const stores = Array.isArray(item.stores) ? item.stores : [];
+        stores.forEach((code) => storeCodes.add(code));
+      });
+      const sortedCodes = Array.from(storeCodes).sort((a, b) =>
+        storeLabelFromCode(a).localeCompare(storeLabelFromCode(b))
+      );
+      const options = [
+        '<option value="all">All stores</option>',
+        ...sortedCodes.map(
+          (code) => `<option value="${code}">${storeLabelFromCode(code)}</option>`
+        ),
+      ];
+      storeFilter.innerHTML = options.join("");
+      if (current && sortedCodes.includes(current)) {
+        storeFilter.value = current;
+      } else {
+        storeFilter.value = "all";
+      }
     }
 
     function setStatus(text, isError = false) {
@@ -136,7 +171,7 @@ const productsEl = document.getElementById("products");
     function renderProducts(items) {
       productsEl.classList.remove("empty");
       if (!items.length) {
-        productsEl.innerHTML = "<div class='empty-note'>Asnje produkt.</div>";
+        productsEl.innerHTML = "<div class='empty-note'>No products.</div>";
         productCountEl.textContent = "0";
         return;
       }
@@ -213,7 +248,6 @@ const productsEl = document.getElementById("products");
             <span class="icon">&#10084;</span>
             <span class="save-label">${saveLabel}</span>
           </button>
-          <button class="ghost full view-offers">Shiko ofertat</button>
         </div>
           </article>
         `;
@@ -221,26 +255,10 @@ const productsEl = document.getElementById("products");
         .join("");
       productsEl.querySelectorAll(".product-card").forEach((card) => {
         const sku = card.dataset.sku;
-        if (compareMode && selectedSkus.has(sku)) {
-          card.classList.add("selected");
-        }
         card.addEventListener("click", () => {
           const name = card.dataset.name;
-          if (compareMode) {
-            toggleSelection(card);
-            return;
-          }
           loadPrices(sku, name);
         });
-        const viewButton = card.querySelector(".view-offers");
-        if (viewButton) {
-          viewButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            const sku = card.dataset.sku;
-            const name = card.dataset.name;
-            loadPrices(sku, name);
-          });
-        }
         card.querySelectorAll(".price-chip[href]").forEach((link) => {
           link.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -272,7 +290,7 @@ const productsEl = document.getElementById("products");
       selectedProductEl.textContent = name;
       pricesEl.classList.remove("empty");
       if (!entries.length) {
-        pricesEl.innerHTML = "<div class='empty-note'>Asnje oferte e gjetur.</div>";
+        pricesEl.innerHTML = "<div class='empty-note'>No offers found.</div>";
         cheapestEl.textContent = "";
         return;
       }
@@ -281,10 +299,10 @@ const productsEl = document.getElementById("products");
       pricesEl.innerHTML = `
         <div class="price-table">
           <div class="price-row head">
-            <span>Dyqani</span>
-            <span>Cmimi</span>
+            <span>Store</span>
+            <span>Price</span>
             <span>Link</span>
-            <span>Koha</span>
+            <span>Time</span>
           </div>
           ${entries
             .map((e) => {
@@ -304,7 +322,7 @@ const productsEl = document.getElementById("products");
               const linkHtml = link
                 ? `<a class="price-link" href="${escapeHtml(
                     link
-                  )}" target="_blank" rel="noopener noreferrer">Hap</a>`
+                  )}" target="_blank" rel="noopener noreferrer">Open</a>`
                 : "-";
               return `
               <div class="price-row">
@@ -320,90 +338,90 @@ const productsEl = document.getElementById("products");
       `;
     }
 
+    function minPriceFor(item) {
+      const prices = Array.isArray(item.latest_prices) ? item.latest_prices : [];
+      if (!prices.length) return null;
+      return prices.reduce((min, entry) => (entry.price < min ? entry.price : min), prices[0].price);
+    }
+
+    function sortProducts(items, mode) {
+      const sorted = items.slice();
+      if (mode === "price-asc") {
+        sorted.sort((a, b) => {
+          const priceA = minPriceFor(a);
+          const priceB = minPriceFor(b);
+          if (priceA == null && priceB == null) return 0;
+          if (priceA == null) return 1;
+          if (priceB == null) return -1;
+          return priceA - priceB;
+        });
+      } else if (mode === "price-desc") {
+        sorted.sort((a, b) => {
+          const priceA = minPriceFor(a);
+          const priceB = minPriceFor(b);
+          if (priceA == null && priceB == null) return 0;
+          if (priceA == null) return 1;
+          if (priceB == null) return -1;
+          return priceB - priceA;
+        });
+      } else if (mode === "name-asc") {
+        sorted.sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || ""), "en", { sensitivity: "base" })
+        );
+      } else if (mode === "name-desc") {
+        sorted.sort((a, b) =>
+          String(b.name || "").localeCompare(String(a.name || ""), "en", { sensitivity: "base" })
+        );
+      }
+      return sorted;
+    }
+
+    function applyFilters() {
+      const store = storeFilter.value;
+      let items = allProducts.slice();
+      if (store && store !== "all") {
+        items = items.filter((product) => {
+          const stores = Array.isArray(product.stores) ? product.stores : [];
+          return stores.includes(store);
+        });
+      }
+      items = sortProducts(items, sortSelect.value);
+      renderProducts(items);
+      setStatus(`Found ${items.length} products`);
+    }
+
     async function loadProducts(query = "") {
-      setStatus("Duke ngarkuar...");
+      setStatus("Loading...");
       try {
         const url = `${apiBase}/products${query ? `?q=${encodeURIComponent(query)}` : ""}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
-        renderProducts(data);
-        setStatus(`Gjetem ${data.length} produkte`);
+        allProducts = Array.isArray(data) ? data : [];
+        updateStoreFilterOptions(allProducts);
+        applyFilters();
       } catch (err) {
         console.error(err);
-        setStatus("Gabim ne listen e produkteve", true);
-        productsEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan produktet.</div>";
+        allProducts = [];
+        updateStoreFilterOptions([]);
+        setStatus("Error loading products", true);
+        productsEl.innerHTML = "<div class='empty-note'>Products failed to load.</div>";
       }
     }
 
     async function loadPrices(sku, name) {
-      setStatus(`Duke lexuar ofertat per ${name}...`);
+      setStatus(`Loading offers for ${name}...`);
       pricesEl.innerHTML = "<div class='empty-note'>Loading...</div>";
       try {
         const res = await fetch(`${apiBase}/products/${encodeURIComponent(sku)}/prices`);
         if (!res.ok) throw new Error(res.statusText);
         const data = await res.json();
         renderPrices(name, data);
-        setStatus(`Gjetem ${data.length} oferta`);
+        setStatus(`Found ${data.length} offers`);
       } catch (err) {
         console.error(err);
-        setStatus("Gabim ne ofertat e produktit", true);
-        pricesEl.innerHTML = "<div class='empty-note'>Nuk u ngarkuan ofertat.</div>";
-      }
-    }
-
-    function openCompare(sku, name) {
-      setStatus(`Duke hapur krahasimin per ${name}...`);
-      window.location.href = `/compare-ui?sku=${encodeURIComponent(sku)}`;
-    }
-
-    function openCompareSelected() {
-      if (!selectedSkus.size) {
-        setStatus("Zgjidh te pakten nje produkt", true);
-        return;
-      }
-      const list = Array.from(selectedSkus);
-      window.location.href = `/compare-ui?skus=${encodeURIComponent(list.join(","))}`;
-    }
-
-    function toggleSelection(card) {
-      const sku = card.dataset.sku;
-      if (selectedSkus.has(sku)) {
-        selectedSkus.delete(sku);
-        card.classList.remove("selected");
-      } else {
-        selectedSkus.add(sku);
-        card.classList.add("selected");
-      }
-      updateSelectionStatus();
-    }
-
-    function clearSelection() {
-      selectedSkus.clear();
-      document.querySelectorAll(".product-card.selected").forEach((card) => {
-        card.classList.remove("selected");
-      });
-      updateSelectionStatus();
-    }
-
-    function updateSelectionStatus() {
-      const count = selectedSkus.size;
-      compareSelectedBtn.disabled = count === 0;
-      compareSelectedBtn.textContent = count ? `Krahaso (${count})` : "Krahaso te zgjedhurit";
-      if (compareMode) {
-        setStatus(count ? `Zgjedhur ${count} produkte` : "Zgjidh produktet per krahasim");
-      }
-    }
-
-    function setCompareMode(active) {
-      compareMode = active;
-      compareModeBtn.classList.toggle("active", active);
-      document.body.classList.toggle("compare-mode", active);
-      if (active) {
-        updateSelectionStatus();
-      } else {
-        clearSelection();
-        setStatus("");
+        setStatus("Error loading product offers", true);
+        pricesEl.innerHTML = "<div class='empty-note'>Offers failed to load.</div>";
       }
     }
 
@@ -527,14 +545,6 @@ const productsEl = document.getElementById("products");
       });
     }
 
-    compareModeBtn.addEventListener("click", () => {
-      setCompareMode(!compareMode);
-    });
-
-    compareSelectedBtn.addEventListener("click", () => {
-      openCompareSelected();
-    });
-
     function openLogoutModal() {
       logoutModal.classList.add("is-open");
       logoutModal.setAttribute("aria-hidden", "false");
@@ -584,6 +594,14 @@ const productsEl = document.getElementById("products");
     refreshBtn.addEventListener("click", () => {
       searchInput.value = "";
       loadProducts("");
+    });
+
+    storeFilter.addEventListener("change", () => {
+      applyFilters();
+    });
+
+    sortSelect.addEventListener("change", () => {
+      applyFilters();
     });
 
     searchInput.addEventListener("keydown", (e) => {

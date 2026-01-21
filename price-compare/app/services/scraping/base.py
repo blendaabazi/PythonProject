@@ -2,6 +2,7 @@ import abc
 import logging
 import re
 import time
+import unicodedata
 from dataclasses import dataclass
 from typing import Iterable, List, Protocol
 import requests
@@ -258,10 +259,13 @@ ACCESSORY_KEYWORDS = [
     "cover",
     "kallf",
     "kellf",
+    "kellef",
     "mbrojt",
     "spigen",
     "glass",
     "xham",
+    "ekran",
+    "screen",
     "magsafe",
     "ultra hybrid",
     "clear",
@@ -269,7 +273,12 @@ ACCESSORY_KEYWORDS = [
 ]
 
 
+def normalize_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value)
+    return "".join(ch for ch in normalized if not unicodedata.combining(ch)).lower()
+
+
 def looks_like_accessory(name: str) -> bool:
     """Heuristic filter for cases/screen-protectors."""
-    lower = name.lower()
+    lower = normalize_text(name)
     return any(term in lower for term in ACCESSORY_KEYWORDS)
