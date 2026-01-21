@@ -41,5 +41,41 @@ class Settings(BaseSettings):
         default=120000,
         validation_alias=AliasChoices("AUTH_PASSWORD_ITERATIONS"),
     )
+    app_base_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("APP_BASE_URL"),
+    )
+    smtp_host: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_HOST"),
+    )
+    smtp_port: int = Field(
+        default=587,
+        validation_alias=AliasChoices("SMTP_PORT"),
+    )
+    smtp_user: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_USER"),
+    )
+    smtp_password: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_PASSWORD"),
+    )
+    smtp_from: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_FROM"),
+    )
+    smtp_use_tls: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("SMTP_USE_TLS"),
+    )
+    smtp_use_ssl: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SMTP_USE_SSL"),
+    )
+    smtp_timeout_sec: int = Field(
+        default=10,
+        validation_alias=AliasChoices("SMTP_TIMEOUT_SEC"),
+    )
 
 settings = Settings()

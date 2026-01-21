@@ -37,6 +37,8 @@ app.innerHTML = `
         <button class="auth-btn primary" type="submit">Log In</button>
       </form>
 
+      <button id="forgotBtn" class="auth-btn ghost" type="button">Forgot password?</button>
+
       <div class="auth-divider"><span>or</span></div>
       <a class="auth-btn secondary" href="/register">Create new account</a>
 
@@ -49,6 +51,24 @@ app.innerHTML = `
     </section>
   </main>
 
+  <div id="forgotModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-title">Reset password</div>
+      <p class="auth-legal">We will email you a reset link.</p>
+      <form id="forgotForm" class="auth-form">
+        <label class="auth-field">
+          <span>Email</span>
+          <input class="auth-input" name="email" type="email" autocomplete="email" required />
+        </label>
+        <div id="forgotStatus" class="auth-status"></div>
+        <div class="modal-actions">
+          <button id="forgotCancel" class="auth-btn ghost" type="button">Cancel</button>
+          <button class="auth-btn primary" type="submit">Send link</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <footer class="auth-footer">
     <a href="/">Home</a>
     <a href="/compare-ui">Compare view</a>
@@ -60,11 +80,21 @@ const loginForm = document.getElementById("loginForm");
     const statusEl = document.getElementById("authStatus");
     const stateEl = document.getElementById("authState");
     const logoutBtn = document.getElementById("logoutBtn");
+    const forgotBtn = document.getElementById("forgotBtn");
+    const forgotModal = document.getElementById("forgotModal");
+    const forgotForm = document.getElementById("forgotForm");
+    const forgotCancel = document.getElementById("forgotCancel");
+    const forgotStatus = document.getElementById("forgotStatus");
     const storageKey = "pc_user";
 
     function setStatus(text, isError = false) {
       statusEl.textContent = text || "";
       statusEl.className = isError ? "auth-status error" : "auth-status";
+    }
+
+    function setForgotStatus(text, isError = false) {
+      forgotStatus.textContent = text || "";
+      forgotStatus.className = isError ? "auth-status error" : "auth-status";
     }
 
     function setAuthState(user) {
@@ -163,6 +193,16 @@ const loginForm = document.getElementById("loginForm");
       throw new Error(detail);
     }
 
+    function openForgotModal() {
+      forgotForm.reset();
+      setForgotStatus("");
+      forgotModal.classList.add("is-open");
+    }
+
+    function closeForgotModal() {
+      forgotModal.classList.remove("is-open");
+    }
+
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       setStatus("Logging in...");
@@ -189,6 +229,33 @@ const loginForm = document.getElementById("loginForm");
     logoutBtn.addEventListener("click", () => {
       clearUser();
       setStatus("Logged out.");
+    });
+
+    forgotBtn.addEventListener("click", () => {
+      openForgotModal();
+    });
+
+    forgotCancel.addEventListener("click", () => {
+      closeForgotModal();
+    });
+
+    forgotModal.addEventListener("click", (event) => {
+      if (event.target === forgotModal) {
+        closeForgotModal();
+      }
+    });
+
+    forgotForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      setForgotStatus("Sending...");
+      const formData = new FormData(forgotForm);
+      const email = String(formData.get("email") || "");
+      try {
+        await postJson("/auth/forgot", { email });
+        setForgotStatus("If that account exists, a reset link was sent.");
+      } catch (err) {
+        setForgotStatus(err.message || "Request failed", true);
+      }
     });
 
     const storedUser = localStorage.getItem(storageKey);

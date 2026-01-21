@@ -29,3 +29,12 @@ class UpdateProfileRequest(BaseModel):
     name: Optional[str] = Field(default=None, max_length=120)
     current_password: str = Field(min_length=8, max_length=128)
     new_password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=512)
+    new_password: str = Field(min_length=8, max_length=128)

@@ -346,3 +346,43 @@ class MongoUserRepository(UserRepository):
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.exception("User update failed: %s", exc)
             raise RepositoryError from exc
+
+    def set_reset_token(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
+        if not user_id:
+            raise RepositoryError("User id required")
+        try:
+            self.collection.update_one(
+                {"_id": _object_id(user_id)},
+                {"$set": {"reset_token_hash": token_hash, "reset_token_expires_at": expires_at}},
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Reset token update failed: %s", exc)
+            raise RepositoryError from exc
+
+    def get_by_reset_token(self, token_hash: str, now: datetime) -> Optional[User]:
+        doc = self.collection.find_one(
+            {"reset_token_hash": token_hash, "reset_token_expires_at": {"$gt": now}}
+        )
+        if not doc:
+            return None
+        created_at = doc.get("created_at") or datetime.now(timezone.utc)
+        return User(
+            id=str(doc["_id"]),
+            email=doc["email"],
+            password_hash=doc["password_hash"],
+            name=doc.get("name"),
+            role=doc.get("role", "user"),
+            created_at=created_at,
+        )
+
+    def clear_reset_token(self, user_id: str) -> None:
+        if not user_id:
+            raise RepositoryError("User id required")
+        try:
+            self.collection.update_one(
+                {"_id": _object_id(user_id)},
+                {"$unset": {"reset_token_hash": "", "reset_token_expires_at": ""}},
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("Reset token clear failed: %s", exc)
+            raise RepositoryError from exc

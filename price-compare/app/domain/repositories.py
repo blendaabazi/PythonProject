@@ -1,4 +1,5 @@
 import abc
+from datetime import datetime
 from typing import List, Optional
 from .models import Product, Shop, PricePoint, User
 
@@ -73,3 +74,15 @@ class UserRepository(abc.ABC):
     @abc.abstractmethod
     def update(self, user: User) -> User:
         """Update an existing user and return the updated instance."""
+
+    @abc.abstractmethod
+    def set_reset_token(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
+        """Store a password reset token hash with expiry."""
+
+    @abc.abstractmethod
+    def get_by_reset_token(self, token_hash: str, now: datetime) -> Optional[User]:
+        """Fetch a user by valid reset token hash."""
+
+    @abc.abstractmethod
+    def clear_reset_token(self, user_id: str) -> None:
+        """Clear password reset token fields."""

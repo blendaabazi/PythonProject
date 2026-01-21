@@ -101,7 +101,7 @@ def compare_ui():
 def auth_ui():
     return render_page(
         "Login | KS Price Compare",
-        "/static/pages/login.js",
+        "/static/pages/login.js?v=2",
         include_header=False,
         body_class="auth-body",
         stylesheet="/static/styles.css?v=2",
@@ -112,7 +112,7 @@ def auth_ui():
 def login_ui():
     return render_page(
         "Login | KS Price Compare",
-        "/static/pages/login.js",
+        "/static/pages/login.js?v=2",
         include_header=False,
         body_class="auth-body",
         stylesheet="/static/styles.css?v=2",
@@ -124,6 +124,17 @@ def register_ui():
     return render_page(
         "Register | KS Price Compare",
         "/static/pages/register.js",
+        include_header=False,
+        body_class="auth-body",
+        stylesheet="/static/styles.css?v=2",
+    )
+
+
+@app.get("/reset")
+def reset_ui():
+    return render_page(
+        "Reset Password | KS Price Compare",
+        "/static/pages/reset.js",
         include_header=False,
         body_class="auth-body",
         stylesheet="/static/styles.css?v=2",
