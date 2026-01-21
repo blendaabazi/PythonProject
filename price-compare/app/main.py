@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from .api import products, shops, prices, compare, auth
@@ -13,6 +13,44 @@ from .dependencies import get_ingestion_service
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+
+def render_page(
+    title: str,
+    script_src: str,
+    *,
+    include_header: bool = True,
+    body_class: str | None = None,
+    stylesheet: str = "/static/styles.css",
+) -> HTMLResponse:
+    """Return a minimal HTML shell without relying on static HTML files."""
+    body_lines: list[str] = []
+    if include_header:
+        body_lines.extend(
+            [
+                '  <div id="siteHeader"></div>',
+                '  <script src="/static/header.js"></script>',
+            ]
+        )
+    body_lines.append('  <div id="app"></div>')
+    body_lines.append(f'  <script src="{script_src}"></script>')
+    body_html = "\n".join(body_lines)
+    body_class_attr = f' class="{body_class}"' if body_class else ""
+    html = (
+        "<!DOCTYPE html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '  <meta charset="UTF-8" />\n'
+        '  <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n'
+        f"  <title>{title}</title>\n"
+        f'  <link rel="stylesheet" href="{stylesheet}" />\n'
+        "</head>\n"
+        f"<body{body_class_attr}>\n"
+        f"{body_html}\n"
+        "</body>\n"
+        "</html>\n"
+    )
+    return HTMLResponse(html)
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(lambda: get_ingestion_service().run_all(), "interval", minutes=settings.scrape_interval_min)
@@ -46,50 +84,60 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/")
 def root():
-    index_file = STATIC_DIR / "index.html"
-    return FileResponse(index_file)
+    return render_page("Apple Price Compare KS", "/static/pages/index.js")
 
 
 @app.get("/compare-ui")
 def compare_ui():
-    compare_file = STATIC_DIR / "compare.html"
-    return FileResponse(compare_file)
+    return render_page("KS Price Compare - Gjirafa vs Neptun", "/static/pages/compare.js")
 
 
 @app.get("/auth-ui")
 def auth_ui():
-    auth_file = STATIC_DIR / "login.html"
-    return FileResponse(auth_file)
+    return render_page(
+        "Login | KS Price Compare",
+        "/static/pages/login.js",
+        include_header=False,
+        body_class="auth-body",
+        stylesheet="/static/styles.css?v=2",
+    )
 
 
 @app.get("/login")
 def login_ui():
-    login_file = STATIC_DIR / "login.html"
-    return FileResponse(login_file)
+    return render_page(
+        "Login | KS Price Compare",
+        "/static/pages/login.js",
+        include_header=False,
+        body_class="auth-body",
+        stylesheet="/static/styles.css?v=2",
+    )
 
 
 @app.get("/register")
 def register_ui():
-    register_file = STATIC_DIR / "register.html"
-    return FileResponse(register_file)
+    return render_page(
+        "Register | KS Price Compare",
+        "/static/pages/register.js",
+        include_header=False,
+        body_class="auth-body",
+        stylesheet="/static/styles.css?v=2",
+    )
 
 
 @app.get("/saved")
 def saved_ui():
-    saved_file = STATIC_DIR / "saved.html"
-    return FileResponse(saved_file)
+    return render_page("Saved Products | KS Price Compare", "/static/pages/saved.js")
 
 
 @app.get("/profile")
 def profile_ui():
-    profile_file = STATIC_DIR / "profile.html"
-    return FileResponse(profile_file)
+    return render_page("My Profile | KS Price Compare", "/static/pages/profile.js")
 
 
 @app.get("/dashboard")
 def dashboard_ui():
-    dashboard_file = STATIC_DIR / "dashboard.html"
-    return FileResponse(dashboard_file)
+    return render_page("Admin Dashboard | KS Price Compare", "/static/pages/dashboard.js")
 
 
 @app.get("/health")

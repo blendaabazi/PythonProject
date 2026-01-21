@@ -193,11 +193,8 @@
           </div>
         </div>
         <div class="pills">
-          <span class="pill accent">Live from Atlas</span>
           <a class="pill ghost" href="/">Home</a>
           <a class="pill ghost" href="/compare-ui">Compare</a>
-          <a id="savedLink" class="pill ghost button-pill" href="/saved">Saved</a>
-          <a id="dashboardLink" class="pill ghost" href="/dashboard" style="display: none;">Dashboard</a>
           <div id="userMenu" class="user-menu" style="display: none;">
             <button id="userMenuBtn" class="pill ghost user-menu-btn" type="button" aria-haspopup="true" aria-expanded="false">
               <span id="userMenuAvatar" class="user-avatar">U</span>

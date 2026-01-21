@@ -39,7 +39,7 @@
 
 ### Frontend (Static UI)
 - Simple UI that consumes REST endpoints.
-- Files: `app/static/index.html`, `app/static/compare.html`, `app/static/styles.css`.
+- Files: `app/static/pages/*.js`, `app/static/styles.css` (HTML shell rendered in `app/main.py`).
 
 ### Configuration and Runtime
 - Environment config and entrypoints.
