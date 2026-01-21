@@ -141,27 +141,30 @@ const productsEl = document.getElementById("products");
         return;
       }
       productCountEl.textContent = items.length;
-      const storeLabel = (stores) => {
+      const storeBadgeMap = {
+        gjirafamall: { label: "Gjirafa", cls: "store-badge gjirafa" },
+        neptun: { label: "Neptun", cls: "store-badge neptun" },
+        aztech: { label: "Aztech", cls: "store-badge aztech" },
+        shopaz: { label: "ShopAz", cls: "store-badge shopaz" },
+        tecstore: { label: "TecStore", cls: "store-badge tecstore" },
+      };
+      const storeBadges = (stores) => {
         const list = Array.isArray(stores) ? stores : [];
-        const hasGjirafa = list.includes("gjirafamall");
-        const hasNeptun = list.includes("neptun");
-        if (hasGjirafa && hasNeptun) {
-          return { label: "Gjirafa + Neptun", cls: "store-badge both" };
+        const unique = Array.from(new Set(list));
+        const badges = unique.map((code) => storeBadgeMap[code]).filter(Boolean);
+        if (!badges.length && list.length) {
+          return `<div class="store-badge other">Other shops</div>`;
         }
-        if (hasGjirafa) {
-          return { label: "Gjirafa", cls: "store-badge gjirafa" };
+        if (!badges.length) {
+          return `<div class="store-badge empty">No offers</div>`;
         }
-        if (hasNeptun) {
-          return { label: "Neptun", cls: "store-badge neptun" };
-        }
-        if (list.length) {
-          return { label: "Other shops", cls: "store-badge other" };
-        }
-        return { label: "No offers", cls: "store-badge empty" };
+        return badges
+          .map((badge) => `<div class="${badge.cls}">${badge.label}</div>`)
+          .join("");
       };
       productsEl.innerHTML = items
         .map((p) => {
-          const badge = storeLabel(p.stores);
+          const badgeHtml = storeBadges(p.stores);
           const prices = Array.isArray(p.latest_prices) ? p.latest_prices : [];
           const rawImage = p.image_url || (Array.isArray(p.image_urls) ? p.image_urls[0] : "");
           const imageUrl = sanitizeUrl(rawImage);
@@ -172,12 +175,17 @@ const productsEl = document.getElementById("products");
             : "<div class='product-image placeholder'><span>No image</span></div>";
       const priceHtml = prices.length
         ? prices
-            .map(
-              (entry) =>
-                `<span class="price-chip ${entry.store}">${storeLabelFromCode(entry.store)}: ${formatPrice(
-                  entry
-                )}</span>`
-            )
+            .map((entry) => {
+              const label = `${storeLabelFromCode(entry.store)}: ${formatPrice(entry)}`;
+              const safeLabel = escapeHtml(label);
+              const link = sanitizeUrl(entry.product_url);
+              if (link) {
+                return `<a class="price-chip ${entry.store}" href="${escapeHtml(
+                  link
+                )}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+              }
+              return `<span class="price-chip ${entry.store}">${safeLabel}</span>`;
+            })
             .join("")
         : "<span class='price-chip empty'>No prices</span>";
           const primaryUrl = prices.length ? sanitizeUrl(prices[0].product_url) : "";
@@ -189,8 +197,7 @@ const productsEl = document.getElementById("products");
         normalizedImage || ""
       )}" data-url="${escapeHtml(primaryUrl || "")}">
             <div class="card-meta">
-              <div class="pill ghost small">SKU</div>
-              <div class="${badge.cls}">${badge.label}</div>
+              ${badgeHtml}
             </div>
             ${
               normalizedImage
@@ -200,7 +207,6 @@ const productsEl = document.getElementById("products");
                 : "<div class='product-image placeholder'><span>No image</span></div>"
             }
             <h3>${p.name}</h3>
-            <p class="muted">${p.sku}</p>
             <div class="price-chips">${priceHtml}</div>
         <div class="card-actions">
           <button class="ghost save-btn" type="button" data-sku="${p.sku}">
@@ -235,6 +241,11 @@ const productsEl = document.getElementById("products");
             loadPrices(sku, name);
           });
         }
+        card.querySelectorAll(".price-chip[href]").forEach((link) => {
+          link.addEventListener("click", (event) => {
+            event.stopPropagation();
+          });
+        });
         const saveButton = card.querySelector(".save-btn");
         if (saveButton) {
           saveButton.addEventListener("click", (event) => {
@@ -276,16 +287,34 @@ const productsEl = document.getElementById("products");
             <span>Koha</span>
           </div>
           ${entries
-            .map(
-              (e) => `
+            .map((e) => {
+              const link = sanitizeUrl(e.product_url);
+              const storeText = escapeHtml(e.store);
+              const priceText = escapeHtml(formatPrice(e));
+              const storeHtml = link
+                ? `<a class="price-link" href="${escapeHtml(
+                    link
+                  )}" target="_blank" rel="noopener noreferrer">${storeText}</a>`
+                : storeText;
+              const priceHtml = link
+                ? `<a class="price-link" href="${escapeHtml(
+                    link
+                  )}" target="_blank" rel="noopener noreferrer">${priceText}</a>`
+                : priceText;
+              const linkHtml = link
+                ? `<a class="price-link" href="${escapeHtml(
+                    link
+                  )}" target="_blank" rel="noopener noreferrer">Hap</a>`
+                : "-";
+              return `
               <div class="price-row">
-                <span>${e.store}</span>
-                <span>${formatPrice(e)}</span>
-                <span><a href="${e.product_url}" target="_blank" rel="noopener noreferrer">Hap</a></span>
+                <span>${storeHtml}</span>
+                <span>${priceHtml}</span>
+                <span>${linkHtml}</span>
                 <span>${new Date(e.timestamp).toLocaleString()}</span>
               </div>
-            `
-            )
+            `;
+            })
             .join("")}
         </div>
       `;

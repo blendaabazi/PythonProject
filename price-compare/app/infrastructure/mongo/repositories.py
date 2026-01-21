@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
+from urllib.parse import urlparse
 from bson import ObjectId
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
@@ -16,6 +17,34 @@ from ...domain.repositories import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_neptun_url(value: str | None) -> str | None:
+    if not value:
+        return value
+    url = str(value).strip()
+    if not url:
+        return value
+    parsed = urlparse(url)
+    netloc = parsed.netloc.lower()
+    if netloc not in {"www.neptun-ks.com", "neptun-ks.com"}:
+        return value
+    path = parsed.path or ""
+    if not path or path == "/":
+        return value
+    if path.startswith("/categories/"):
+        return value
+    if path.endswith(".nspx"):
+        return value
+    slug = path.lstrip("/")
+    if not slug or "/" in slug:
+        return value
+    suffix = ""
+    if parsed.query:
+        suffix += f"?{parsed.query}"
+    if parsed.fragment:
+        suffix += f"#{parsed.fragment}"
+    return f"https://www.neptun-ks.com/categories/{slug}{suffix}"
 
 
 def _object_id(value: str | ObjectId | None) -> ObjectId | None:
@@ -164,13 +193,16 @@ class MongoPriceRepository(PriceRepository):
                 store = ShopName.from_human(str(code))
             except Exception:
                 store = ShopName.GJIRAFAMALL
+        product_url = doc.get("product_url")
+        if store == ShopName.NEPTUN:
+            product_url = _normalize_neptun_url(product_url)
         return PricePoint(
             id=str(doc.get("_id")),
             product_sku=doc["product_sku"],
             store=store,
             price=doc["price"],
             currency=doc["currency"],
-            product_url=doc["product_url"],
+            product_url=product_url,
             in_stock=doc.get("in_stock", True),
             timestamp=doc["timestamp"],
         )

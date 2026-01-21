@@ -83,6 +83,46 @@ class NeptunKSScraper(PagedScraper):
                 continue
         return None
 
+    def _normalize_iphone_suffix(self, value: str) -> str:
+        tokens = value.split()
+        normalized: list[str] = []
+        for token in tokens:
+            if any(ch.isdigit() for ch in token):
+                normalized.append(token)
+            else:
+                normalized.append(token.capitalize())
+        return " ".join(normalized)
+
+    def _normalize_iphone_name(self, name: str) -> str:
+        trimmed = " ".join(name.split())
+        if not trimmed:
+            return trimmed
+        lowered = trimmed.lower()
+        if lowered.startswith("apple "):
+            return trimmed
+        if lowered.startswith("iphone"):
+            rest = trimmed[len("iphone") :].strip()
+            if not rest:
+                return "Apple iPhone"
+            return f"Apple iPhone {self._normalize_iphone_suffix(rest)}"
+        return trimmed
+
+    def _build_product_url(
+        self, product_slug: str | None, category_slug: str | None = None, fallback_url: str | None = None
+    ) -> str | None:
+        if not product_slug:
+            return fallback_url
+        slug = str(product_slug).strip()
+        if not slug:
+            return fallback_url
+        if slug.startswith(("http://", "https://")):
+            return slug
+        if slug.startswith("/"):
+            return self.normalize_url(slug, "https://www.neptun-ks.com")
+        if "/" in slug:
+            return f"https://www.neptun-ks.com/{slug.lstrip('/')}"
+        return f"https://www.neptun-ks.com/categories/{slug}"
+
     def _coerce_image_url(self, value):
         if isinstance(value, dict):
             for key in (
@@ -364,8 +404,10 @@ class NeptunKSScraper(PagedScraper):
 
     def parse_products(self, soup, url):
         # Preferred: parse Angular category bootstrap payload if present.
-        for item in self._parse_category_details(soup, url):
-            yield item
+        items = list(self._parse_category_details(soup, url))
+        if items:
+            yield from items
+            return
 
         model = None
         for var_name in ("shopCategoryModel", "catalogProductsModel", "categoryModel", "productListModel"):
@@ -374,11 +416,12 @@ class NeptunKSScraper(PagedScraper):
                 break
         if model:
             for product in model.get("Products", []):
-                name = (product.get("Title") or "").strip()
-                if not name:
+                raw_name = (product.get("Title") or "").strip()
+                if not raw_name:
                     continue
-                if "iphone" not in name.lower() or looks_like_accessory(name):
+                if "iphone" not in raw_name.lower() or looks_like_accessory(raw_name):
                     continue
+                name = self._normalize_iphone_name(raw_name)
                 price = product.get("ActualPrice") or product.get("RegularPrice")
                 if price is None:
                     continue
@@ -388,14 +431,7 @@ class NeptunKSScraper(PagedScraper):
                 if isinstance(category, dict):
                     category_slug = category.get("Url") or category.get("url")
                 product_slug = product.get("Url") or product.get("url") or product.get("Slug")
-                product_url = None
-                if product_slug:
-                    if category_slug and not product_slug.startswith(("http://", "https://", "/")):
-                        product_url = f"https://www.neptun-ks.com/categories/{category_slug}/{product_slug}"
-                    else:
-                        product_url = self.normalize_url(product_slug, "https://www.neptun-ks.com")
-                        if not product_url:
-                            product_url = url
+                product_url = self._build_product_url(product_slug, category_slug, url)
 
                 image_urls = self._extract_images_from_model(product)
                 if not image_urls and product_url:
@@ -425,9 +461,10 @@ class NeptunKSScraper(PagedScraper):
             link_el = card.select_one("a")
             if not (name_el and price_el and link_el):
                 continue
-            name = name_el.get_text(strip=True)
-            if "iphone" not in name.lower() or looks_like_accessory(name):
+            raw_name = name_el.get_text(strip=True)
+            if "iphone" not in raw_name.lower() or looks_like_accessory(raw_name):
                 continue
+            name = self._normalize_iphone_name(raw_name)
             try:
                 price = self.parse_price(price_el.get_text(" ", strip=True))
             except Exception:
@@ -513,15 +550,20 @@ class NeptunKSScraper(PagedScraper):
         products = payload.get("Products") or []
         items: list[ScrapedItem] = []
         for product in products:
-            name = (product.get("Title") or "").strip()
-            if not name or "iphone" not in name.lower() or looks_like_accessory(name):
+            raw_name = (product.get("Title") or "").strip()
+            if not raw_name or "iphone" not in raw_name.lower() or looks_like_accessory(raw_name):
                 continue
+            name = self._normalize_iphone_name(raw_name)
             price = product.get("ActualPrice") or product.get("DiscountPrice") or product.get("RegularPrice")
             if price is None:
                 continue
             currency = product.get("Currency") or "EUR"
+            category_slug = None
+            category = product.get("Category") or payload.get("Category")
+            if isinstance(category, dict):
+                category_slug = category.get("Url") or category.get("url")
             product_slug = product.get("Url") or product.get("url") or ""
-            product_url = self.normalize_url(product_slug, "https://www.neptun-ks.com") if product_slug else url
+            product_url = self._build_product_url(product_slug, category_slug, url)
 
             images: list[str] = []
             thumb = product.get("Thumbnail")
