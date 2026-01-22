@@ -86,3 +86,15 @@ class UserRepository(abc.ABC):
     @abc.abstractmethod
     def clear_reset_token(self, user_id: str) -> None:
         """Clear password reset token fields."""
+
+    @abc.abstractmethod
+    def set_refresh_token(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
+        """Store a refresh token hash with expiry."""
+
+    @abc.abstractmethod
+    def get_by_refresh_token(self, token_hash: str, now: datetime) -> Optional[User]:
+        """Fetch a user by valid refresh token hash."""
+
+    @abc.abstractmethod
+    def clear_refresh_token(self, user_id: str) -> None:
+        """Clear refresh token fields."""

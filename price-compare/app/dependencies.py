@@ -1,6 +1,8 @@
 """Dependency wiring for FastAPI and background jobs."""
 
 from functools import lru_cache
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from .infrastructure.mongo.connection import get_database, get_auth_database
 from .infrastructure.mongo.repositories import (
     MongoProductRepository,
@@ -11,10 +13,11 @@ from .infrastructure.mongo.repositories import (
 from .infrastructure.caching import CachingPriceRepository
 from .services.scraping.factory import ScraperFactory
 from .services.ingestion_service import IngestionService
-from .services.compare_service import ComparisonService
+from .services.comparison_service import ComparisonService
 from .services.pricing import default_pricing_strategies, PricingStrategy
 from .services.email_service import EmailService
 from .config import settings
+from .security.jwt import JWTError, decode_jwt
 
 
 @lru_cache(maxsize=1)
@@ -35,6 +38,39 @@ def get_price_repo():
 @lru_cache(maxsize=1)
 def get_user_repo():
     return MongoUserRepository(get_auth_database())
+
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    user_repo=Depends(get_user_repo),
+):
+    token = None
+    if credentials and credentials.scheme.lower() == "bearer":
+        token = credentials.credentials
+    if not token:
+        token = request.cookies.get(settings.jwt_cookie_name)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
+    try:
+        payload = decode_jwt(
+            token,
+            secret=settings.jwt_secret,
+            issuer=settings.jwt_issuer,
+            algorithms=(settings.jwt_algorithm,),
+        )
+    except JWTError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+    subject = payload.get("sub")
+    if not subject:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    user = user_repo.get_by_email(subject)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    return user
 
 
 @lru_cache(maxsize=1)

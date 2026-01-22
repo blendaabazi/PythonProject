@@ -179,11 +179,20 @@
     applyAuthUI(currentUser);
   }
 
-  function handleLogoutClick() {
+  async function handleLogoutClick() {
     closeUserMenu();
     if (typeof window.handleHeaderLogout === "function") {
       window.handleHeaderLogout();
       return;
+    }
+    try {
+      await fetch("/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+        keepalive: true,
+      });
+    } catch (err) {
+      // ignore logout failures
     }
     localStorage.removeItem(STORAGE_KEY);
     window.location.href = "/";

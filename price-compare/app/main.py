@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from .api import products, shops, prices, compare, auth
 from .api.error_handlers import register_exception_handlers
-from .config import settings
+from .config import settings, ensure_secure_settings
 from .database import ensure_indexes
 from .dependencies import get_ingestion_service
 
@@ -52,12 +52,14 @@ def render_page(
     )
     return HTMLResponse(html)
 
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(lambda: get_ingestion_service().run_all(), "interval", minutes=settings.scrape_interval_min)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_secure_settings()
     try:
         ensure_indexes()
         if settings.scrape_on_startup:

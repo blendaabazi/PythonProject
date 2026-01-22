@@ -560,7 +560,12 @@ const productsEl = document.getElementById("products");
       closeLogoutModal();
     });
 
-    logoutConfirm.addEventListener("click", () => {
+    logoutConfirm.addEventListener("click", async () => {
+      try {
+        await fetch("/auth/logout", { method: "POST", credentials: "same-origin" });
+      } catch (err) {
+        // ignore logout failures
+      }
       localStorage.removeItem(storageKey);
       currentUser = null;
       savedItems = loadSavedItems(currentUser);

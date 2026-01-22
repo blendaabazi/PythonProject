@@ -122,6 +122,7 @@ const storageKey = "pc_user";
       }
     }
 
+
     function saveUser(user) {
       localStorage.setItem(storageKey, JSON.stringify(user));
     }
@@ -240,9 +241,14 @@ const storageKey = "pc_user";
     }
 
     async function putJson(url, payload) {
+      const headers = { "Content-Type": "application/json" };
+      if (currentUser && currentUser.access_token) {
+        headers.Authorization = `Bearer ${currentUser.access_token}`;
+      }
       const response = await fetch(url, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        headers,
         body: JSON.stringify(payload),
       });
       if (response.ok) {
@@ -263,6 +269,7 @@ const storageKey = "pc_user";
     currentUser = loadUser();
     if (!currentUser) {
       localStorage.setItem("pc_next", "/profile");
+      localStorage.removeItem(storageKey);
       window.location.href = "/login";
     } else {
       if (window.HeaderUI && window.HeaderUI.refresh) {
@@ -345,26 +352,29 @@ const storageKey = "pc_user";
 
       try {
         const updated = await putJson("/auth/profile", {
-          current_email: currentUser.email,
           email,
           name: name || null,
           current_password: currentPassword,
           new_password: newPassword || null,
         });
-        if (updated.email && updated.email !== currentUser.email) {
-          mergeSaved(currentUser.email, updated.email);
-          mergePhoto(currentUser.email, updated.email);
+        const safeUser = { ...updated };
+        delete safeUser.access_token;
+        delete safeUser.token_type;
+        delete safeUser.expires_in;
+        if (safeUser.email && safeUser.email !== currentUser.email) {
+          mergeSaved(currentUser.email, safeUser.email);
+          mergePhoto(currentUser.email, safeUser.email);
         }
-        currentUser = updated;
-        saveUser(updated);
+        currentUser = safeUser;
+        saveUser(safeUser);
         if (window.HeaderUI && window.HeaderUI.refresh) {
           window.HeaderUI.refresh();
         } else {
-          syncHeaderUser(updated);
+          syncHeaderUser(safeUser);
         }
-        updateOverview(updated);
-        hydrateForm(updated);
-        loadPhoto(updated.email);
+        updateOverview(safeUser);
+        hydrateForm(safeUser);
+        loadPhoto(safeUser.email);
         profileForm.querySelector("[name='current_password']").value = "";
         profileForm.querySelector("[name='new_password']").value = "";
         profileForm.querySelector("[name='confirm_password']").value = "";

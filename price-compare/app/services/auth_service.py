@@ -178,6 +178,35 @@ class AuthService:
         self._notify_password_changed(updated)
         return updated
 
+    def issue_refresh_token(self, user: User) -> tuple[str, int]:
+        if not user.id:
+            raise ValueError("User id required")
+        token = secrets.token_urlsafe(48)
+        token_hash = _hash_token(token)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_ttl_days)
+        self._user_repo.set_refresh_token(user.id, token_hash, expires_at)
+        ttl_seconds = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+        return token, ttl_seconds
+
+    def refresh_access_token(self, refresh_token: str) -> tuple[User, str, int]:
+        if not refresh_token:
+            raise ValueError("Refresh token required")
+        token_hash = _hash_token(refresh_token)
+        user = self._user_repo.get_by_refresh_token(token_hash, datetime.now(timezone.utc))
+        if not user:
+            raise ValueError("Refresh token invalid or expired")
+        new_refresh, ttl_seconds = self.issue_refresh_token(user)
+        return user, new_refresh, ttl_seconds
+
+    def revoke_refresh_token(self, refresh_token: str) -> None:
+        if not refresh_token:
+            return
+        token_hash = _hash_token(refresh_token)
+        user = self._user_repo.get_by_refresh_token(token_hash, datetime.now(timezone.utc))
+        if not user or not user.id:
+            return
+        self._user_repo.clear_refresh_token(user.id)
+
     def _notify_password_changed(self, user: User) -> None:
         if not self._email_service or not user.email:
             return

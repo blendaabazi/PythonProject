@@ -49,7 +49,7 @@ app.innerHTML = `
       <a class="auth-btn ghost" href="/login">Back to login</a>
 
       <p class="auth-legal">
-        By creating an account you accept the terms. This is a demo UI without tokens.
+        By creating an account you accept the terms. Login stores a JWT in a secure cookie.
       </p>
     </section>
   </main>

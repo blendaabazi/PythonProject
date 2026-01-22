@@ -3,7 +3,7 @@ from typing import List, Optional
 from app.domain.enums import ProductCategory, ShopName
 from app.domain.models import Product, PricePoint
 from app.domain.repositories import ProductRepository, PriceRepository
-from app.services.compare_service import ComparisonService
+from app.services.comparison_service import ComparisonService
 
 
 class InMemoryProductRepo(ProductRepository):

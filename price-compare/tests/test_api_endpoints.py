@@ -14,7 +14,7 @@ from app.domain.enums import ProductCategory, ShopName
 from app.domain.models import PricePoint, Product, Shop
 from app.domain.repositories import PriceRepository, ProductRepository, ShopRepository
 from app.main import app
-from app.services.compare_service import ComparisonService
+from app.services.comparison_service import ComparisonService
 
 
 class InMemoryProductRepo(ProductRepository):

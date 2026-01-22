@@ -13,3 +13,4 @@ def ensure_indexes():
     stores_col.create_index("code", unique=True)
     prices_col.create_index([("product_sku", 1), ("store_code", 1), ("timestamp", -1)])
     users_col.create_index("email", unique=True)
+    users_col.create_index("refresh_token_hash")

@@ -46,7 +46,7 @@ app.innerHTML = `
       <button id="logoutBtn" class="auth-btn ghost" type="button">Log out</button>
 
       <p class="auth-legal">
-        By continuing you agree to the terms. This is a demo UI without tokens.
+        By continuing you agree to the terms. JWT is stored in a secure cookie for this demo.
       </p>
     </section>
   </main>
@@ -175,6 +175,7 @@ const loginForm = document.getElementById("loginForm");
     async function postJson(url, payload) {
       const response = await fetch(url, {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -213,8 +214,12 @@ const loginForm = document.getElementById("loginForm");
       };
       try {
         const user = await postJson("/auth/login", payload);
-        saveUser(user);
-        applyPendingSave(user);
+        const safeUser = { ...user };
+        delete safeUser.access_token;
+        delete safeUser.token_type;
+        delete safeUser.expires_in;
+        saveUser(safeUser);
+        applyPendingSave(safeUser);
         setStatus("Login ok.");
         const next = localStorage.getItem("pc_next") || "/";
         localStorage.removeItem("pc_next");
@@ -226,7 +231,12 @@ const loginForm = document.getElementById("loginForm");
       }
     });
 
-    logoutBtn.addEventListener("click", () => {
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await postJson("/auth/logout", {});
+      } catch (err) {
+        // ignore logout failures
+      }
       clearUser();
       setStatus("Logged out.");
     });

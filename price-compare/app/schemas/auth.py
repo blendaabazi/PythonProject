@@ -24,11 +24,16 @@ class UserResponse(BaseModel):
 
 
 class UpdateProfileRequest(BaseModel):
-    current_email: str = Field(min_length=3, max_length=254)
     email: str = Field(min_length=3, max_length=254)
     name: Optional[str] = Field(default=None, max_length=120)
     current_password: str = Field(min_length=8, max_length=128)
     new_password: Optional[str] = Field(default=None, min_length=8, max_length=128)
+
+
+class AuthResponse(UserResponse):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
 
 
 class ForgotPasswordRequest(BaseModel):
