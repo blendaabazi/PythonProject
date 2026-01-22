@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
-from .api import products, shops, prices, compare, auth
+from .api import products, shops, prices, compare, auth, admin
 from .api.error_handlers import register_exception_handlers
 from .config import settings, ensure_secure_settings
 from .database import ensure_indexes
@@ -81,6 +81,7 @@ app.include_router(shops.router)
 app.include_router(prices.router)
 app.include_router(compare.router)
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -155,7 +156,11 @@ def profile_ui():
 
 @app.get("/dashboard")
 def dashboard_ui():
-    return render_page("Admin Dashboard | KS Price Compare", "/static/pages/dashboard.js")
+    return render_page(
+        "Admin Dashboard | KS Price Compare",
+        "/static/pages/dashboard.js?v=3",
+        stylesheet="/static/styles.css?v=3",
+    )
 
 
 @app.get("/health")

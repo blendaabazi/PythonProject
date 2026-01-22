@@ -18,8 +18,21 @@ class ProductRepository(abc.ABC):
         """Fetch a single product."""
 
     @abc.abstractmethod
-    def search(self, query: Optional[str] = None) -> List[Product]:
+    def search(
+        self,
+        query: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[Product]:
         """Search products by name or return all if query is None."""
+
+    @abc.abstractmethod
+    def count(self, query: Optional[str] = None) -> int:
+        """Return the total count for a product query."""
+
+    @abc.abstractmethod
+    def delete(self, sku: str) -> bool:
+        """Delete a product by SKU."""
 
 
 class ShopRepository(abc.ABC):
@@ -34,6 +47,14 @@ class ShopRepository(abc.ABC):
     @abc.abstractmethod
     def get_by_code(self, code: str) -> Optional[Shop]:
         """Return shop by stable code."""
+
+    @abc.abstractmethod
+    def count(self) -> int:
+        """Return the total shop count."""
+
+    @abc.abstractmethod
+    def delete(self, code: str) -> bool:
+        """Delete a shop by code."""
 
 
 class PriceRepository(abc.ABC):
@@ -61,6 +82,22 @@ class PriceRepository(abc.ABC):
     def latest_prices_for_products(self, product_skus: List[str]) -> dict[str, List[PricePoint]]:
         """Return latest price points per store for each product sku."""
 
+    @abc.abstractmethod
+    def count(self) -> int:
+        """Return the total price count."""
+
+    @abc.abstractmethod
+    def latest_timestamp(self) -> Optional[datetime]:
+        """Return the most recent price timestamp if available."""
+
+    @abc.abstractmethod
+    def delete_for_product(self, product_sku: str) -> int:
+        """Delete all prices for a product and return the deleted count."""
+
+    @abc.abstractmethod
+    def delete_for_store(self, store_code: str) -> int:
+        """Delete all prices for a store and return the deleted count."""
+
 
 class UserRepository(abc.ABC):
     @abc.abstractmethod
@@ -68,12 +105,33 @@ class UserRepository(abc.ABC):
         """Persist a new user and return its id."""
 
     @abc.abstractmethod
+    def get_by_id(self, user_id: str) -> Optional[User]:
+        """Fetch a user by id."""
+
+    @abc.abstractmethod
     def get_by_email(self, email: str) -> Optional[User]:
         """Fetch a user by email."""
 
     @abc.abstractmethod
+    def list_users(
+        self,
+        query: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[User]:
+        """List users by email or name."""
+
+    @abc.abstractmethod
     def update(self, user: User) -> User:
         """Update an existing user and return the updated instance."""
+
+    @abc.abstractmethod
+    def count(self, query: Optional[str] = None) -> int:
+        """Return the total user count, optionally filtered."""
+
+    @abc.abstractmethod
+    def delete(self, user_id: str) -> bool:
+        """Delete a user by id."""
 
     @abc.abstractmethod
     def set_reset_token(self, user_id: str, token_hash: str, expires_at: datetime) -> None:

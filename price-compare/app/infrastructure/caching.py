@@ -62,3 +62,17 @@ class CachingPriceRepository(PriceRepository):
             fetched = self.inner.latest_prices_for_products(missing)
             self._latest_cache.update(fetched)
         return {sku: self._latest_cache.get(sku, []) for sku in product_skus}
+
+    def count(self) -> int:
+        return self.inner.count()
+
+    def latest_timestamp(self):
+        return self.inner.latest_timestamp()
+
+    def delete_for_product(self, product_sku: str) -> int:
+        self._invalidate(product_sku)
+        return self.inner.delete_for_product(product_sku)
+
+    def delete_for_store(self, store_code: str) -> int:
+        self._invalidate()
+        return self.inner.delete_for_store(store_code)

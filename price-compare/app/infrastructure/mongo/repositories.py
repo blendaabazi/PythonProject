@@ -68,7 +68,7 @@ class MongoProductRepository(ProductRepository):
             }
             if product.image_url is not None:
                 doc["image_url"] = product.image_url
-            if product.image_urls:
+            if product.image_urls is not None:
                 doc["image_urls"] = product.image_urls
             saved = self.collection.find_one_and_update(
                 {"sku": product.sku},
@@ -96,21 +96,33 @@ class MongoProductRepository(ProductRepository):
             image_urls=doc.get("image_urls"),
         )
 
-    def search(self, query: Optional[str] = None) -> List[Product]:
+    def search(
+        self,
+        query: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[Product]:
         filter_ = {"name": {"$regex": query, "$options": "i"}} if query else {}
+        cursor = (
+            self.collection.find(
+                filter_,
+                {
+                    "_id": 1,
+                    "sku": 1,
+                    "name": 1,
+                    "category": 1,
+                    "brand": 1,
+                    "image_url": 1,
+                    "image_urls": 1,
+                },
+            )
+            .sort([("name", 1), ("sku", 1)])
+            .skip(max(offset, 0))
+        )
+        if limit:
+            cursor = cursor.limit(limit)
         results = []
-        for doc in self.collection.find(
-            filter_,
-            {
-                "_id": 1,
-                "sku": 1,
-                "name": 1,
-                "category": 1,
-                "brand": 1,
-                "image_url": 1,
-                "image_urls": 1,
-            },
-        ):
+        for doc in cursor:
             category = doc.get("category", ProductCategory.SMARTPHONE.value)
             results.append(
                 Product(
@@ -124,6 +136,14 @@ class MongoProductRepository(ProductRepository):
                 )
             )
         return results
+
+    def count(self, query: Optional[str] = None) -> int:
+        filter_ = {"name": {"$regex": query, "$options": "i"}} if query else {}
+        return int(self.collection.count_documents(filter_))
+
+    def delete(self, sku: str) -> bool:
+        result = self.collection.delete_one({"sku": sku})
+        return result.deleted_count > 0
 
 
 class MongoShopRepository(ShopRepository):
@@ -156,6 +176,13 @@ class MongoShopRepository(ShopRepository):
         if not doc:
             return None
         return Shop(id=str(doc["_id"]), code=ShopName(doc["code"]), name=doc["name"])
+
+    def count(self) -> int:
+        return int(self.collection.count_documents({}))
+
+    def delete(self, code: str) -> bool:
+        result = self.collection.delete_one({"code": code})
+        return result.deleted_count > 0
 
 
 class MongoPriceRepository(PriceRepository):
@@ -275,6 +302,21 @@ class MongoPriceRepository(PriceRepository):
             result[doc["_id"]] = offers
         return result
 
+    def count(self) -> int:
+        return int(self.collection.count_documents({}))
+
+    def latest_timestamp(self) -> Optional[datetime]:
+        doc = self.collection.find_one({}, {"timestamp": 1}, sort=[("timestamp", -1)])
+        return doc.get("timestamp") if doc else None
+
+    def delete_for_product(self, product_sku: str) -> int:
+        result = self.collection.delete_many({"product_sku": product_sku})
+        return int(result.deleted_count)
+
+    def delete_for_store(self, store_code: str) -> int:
+        result = self.collection.delete_many({"store_code": store_code})
+        return int(result.deleted_count)
+
 
 class MongoUserRepository(UserRepository):
     def __init__(self, db: Database):
@@ -298,6 +340,26 @@ class MongoUserRepository(UserRepository):
             logger.exception("User create failed: %s", exc)
             raise RepositoryError from exc
 
+    def get_by_id(self, user_id: str) -> Optional[User]:
+        if not user_id:
+            return None
+        try:
+            doc = self.collection.find_one({"_id": _object_id(user_id)})
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("User lookup by id failed: %s", exc)
+            raise RepositoryError from exc
+        if not doc:
+            return None
+        created_at = doc.get("created_at") or datetime.now(timezone.utc)
+        return User(
+            id=str(doc["_id"]),
+            email=doc["email"],
+            password_hash=doc.get("password_hash", ""),
+            name=doc.get("name"),
+            role=doc.get("role", "user"),
+            created_at=created_at,
+        )
+
     def get_by_email(self, email: str) -> Optional[User]:
         doc = self.collection.find_one({"email": email})
         if not doc:
@@ -311,6 +373,52 @@ class MongoUserRepository(UserRepository):
             role=doc.get("role", "user"),
             created_at=created_at,
         )
+
+    def list_users(
+        self,
+        query: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> List[User]:
+        filter_ = {}
+        if query:
+            filter_ = {
+                "$or": [
+                    {"email": {"$regex": query, "$options": "i"}},
+                    {"name": {"$regex": query, "$options": "i"}},
+                ]
+            }
+        cursor = (
+            self.collection.find(
+                filter_,
+                {
+                    "_id": 1,
+                    "email": 1,
+                    "password_hash": 1,
+                    "name": 1,
+                    "role": 1,
+                    "created_at": 1,
+                },
+            )
+            .sort([("created_at", -1), ("email", 1)])
+            .skip(max(offset, 0))
+        )
+        if limit:
+            cursor = cursor.limit(limit)
+        users: List[User] = []
+        for doc in cursor:
+            created_at = doc.get("created_at") or datetime.now(timezone.utc)
+            users.append(
+                User(
+                    id=str(doc["_id"]),
+                    email=doc["email"],
+                    password_hash=doc.get("password_hash", ""),
+                    name=doc.get("name"),
+                    role=doc.get("role", "user"),
+                    created_at=created_at,
+                )
+            )
+        return users
 
     def update(self, user: User) -> User:
         if not user.id:
@@ -345,6 +453,27 @@ class MongoUserRepository(UserRepository):
             raise
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.exception("User update failed: %s", exc)
+            raise RepositoryError from exc
+
+    def count(self, query: Optional[str] = None) -> int:
+        filter_ = {}
+        if query:
+            filter_ = {
+                "$or": [
+                    {"email": {"$regex": query, "$options": "i"}},
+                    {"name": {"$regex": query, "$options": "i"}},
+                ]
+            }
+        return int(self.collection.count_documents(filter_))
+
+    def delete(self, user_id: str) -> bool:
+        if not user_id:
+            return False
+        try:
+            result = self.collection.delete_one({"_id": _object_id(user_id)})
+            return result.deleted_count > 0
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception("User delete failed: %s", exc)
             raise RepositoryError from exc
 
     def set_reset_token(self, user_id: str, token_hash: str, expires_at: datetime) -> None:
