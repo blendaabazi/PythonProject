@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from threading import Lock
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 
 from ..dependencies import (
     get_product_repo,
     get_shop_repo,
     get_price_repo,
     get_user_repo,
+    get_ingestion_service,
     get_current_user,
     require_admin,
 )
@@ -19,6 +24,8 @@ from ..schemas.admin import (
     AdminStoreSummary,
     AdminRecentPrice,
     AdminSystemSummary,
+    AdminScrapeResponse,
+    AdminScrapeStatusResponse,
     AdminProductCreateRequest,
     AdminProductUpdateRequest,
     AdminProductResponse,
@@ -37,6 +44,51 @@ from ..services.auth_service import hash_password, ADMIN_EMAIL
 from ..config import settings
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+
+
+@dataclass
+class _ScrapeState:
+    running: bool = False
+    total: int = 0
+    completed: int = 0
+    current_store: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    last_error: str | None = None
+
+
+_scrape_state = _ScrapeState()
+_scrape_lock = Lock()
+
+
+def _run_scrape_with_progress(ingestion_service) -> None:
+    now = datetime.now(timezone.utc)
+    scrapers = list(getattr(ingestion_service, "scrapers", []))
+    with _scrape_lock:
+        _scrape_state.running = True
+        _scrape_state.total = len(scrapers)
+        _scrape_state.completed = 0
+        _scrape_state.current_store = None
+        _scrape_state.started_at = _scrape_state.started_at or now
+        _scrape_state.finished_at = None
+        _scrape_state.last_error = None
+    for index, scraper in enumerate(scrapers, start=1):
+        store_value = getattr(scraper, "store", None)
+        store_label = getattr(store_value, "value", None) or str(store_value or "")
+        with _scrape_lock:
+            _scrape_state.current_store = store_label or None
+        try:
+            ingestion_service._ingest_scraper(scraper, now)
+        except Exception as exc:
+            with _scrape_lock:
+                _scrape_state.last_error = str(exc) or "Scrape failed"
+        finally:
+            with _scrape_lock:
+                _scrape_state.completed = index
+    with _scrape_lock:
+        _scrape_state.running = False
+        _scrape_state.current_store = None
+        _scrape_state.finished_at = datetime.now(timezone.utc)
 
 
 def _normalize_text(value: str | None) -> str | None:
@@ -219,6 +271,39 @@ def admin_insights(
         recent_prices=recent_prices,
         system=system,
     )
+
+
+@router.post("/scrape", response_model=AdminScrapeResponse, status_code=status.HTTP_202_ACCEPTED)
+def admin_scrape(
+    background_tasks: BackgroundTasks,
+    ingestion_service=Depends(get_ingestion_service),
+):
+    with _scrape_lock:
+        if _scrape_state.running:
+            return AdminScrapeResponse(status="running", message="Scrape already running")
+        _scrape_state.running = True
+        _scrape_state.total = len(getattr(ingestion_service, "scrapers", []))
+        _scrape_state.completed = 0
+        _scrape_state.current_store = None
+        _scrape_state.started_at = datetime.now(timezone.utc)
+        _scrape_state.finished_at = None
+        _scrape_state.last_error = None
+    background_tasks.add_task(_run_scrape_with_progress, ingestion_service)
+    return AdminScrapeResponse(status="ok", message="Scrape started")
+
+
+@router.get("/scrape/status", response_model=AdminScrapeStatusResponse)
+def admin_scrape_status():
+    with _scrape_lock:
+        return AdminScrapeStatusResponse(
+            running=_scrape_state.running,
+            total=_scrape_state.total,
+            completed=_scrape_state.completed,
+            current_store=_scrape_state.current_store,
+            started_at=_scrape_state.started_at,
+            finished_at=_scrape_state.finished_at,
+            last_error=_scrape_state.last_error,
+        )
 
 
 @router.get("/products", response_model=AdminProductListResponse)

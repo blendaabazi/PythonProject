@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
 from .api import products, shops, prices, compare, auth, admin
@@ -10,6 +10,7 @@ from .api.error_handlers import register_exception_handlers
 from .config import settings, ensure_secure_settings
 from .database import ensure_indexes
 from .dependencies import get_ingestion_service
+from .security.jwt import JWTError, decode_jwt
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -155,7 +156,21 @@ def profile_ui():
 
 
 @app.get("/dashboard")
-def dashboard_ui():
+def dashboard_ui(request: Request):
+    token = request.cookies.get(settings.jwt_cookie_name)
+    if not token:
+        return RedirectResponse(url="/profile")
+    try:
+        payload = decode_jwt(
+            token,
+            secret=settings.jwt_secret,
+            issuer=settings.jwt_issuer,
+            algorithms=(settings.jwt_algorithm,),
+        )
+    except JWTError:
+        return RedirectResponse(url="/")
+    if payload.get("role") != "admin":
+        return RedirectResponse(url="/")
     return render_page(
         "Admin Dashboard | KS Price Compare",
         "/static/pages/dashboard.js?v=3",

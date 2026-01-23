@@ -467,6 +467,11 @@ button.compare-selected:disabled {
   color: #fca5a5;
 }
 
+.status-right {
+  margin-left: auto;
+  text-align: right;
+}
+
 .stat-card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -484,6 +489,22 @@ button.compare-selected:disabled {
 .stat-value {
   font-size: 32px;
   font-weight: 700;
+}
+
+.stat-value .stat-date {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-value .stat-time {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .stat-foot {
@@ -1156,6 +1177,53 @@ a.pill {
   box-shadow: none;
 }
 
+.page-btn {
+  min-width: 34px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.page-btn.is-active {
+  background: var(--accent);
+  border-color: transparent;
+  color: #f8fafc;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 6px 4px 12px;
+}
+
+.admin-pagination.is-hidden {
+  display: none;
+}
+
+.admin-page-list {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.page-ellipsis {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 4px;
+}
+
+.admin-page-info {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1427,6 +1495,10 @@ a.pill {
   flex-wrap: wrap;
 }
 
+.scrape-btn {
+  margin-left: auto;
+}
+
 .admin-toolbar input {
   padding: 12px 14px;
   border-radius: 12px;
@@ -1440,6 +1512,119 @@ a.pill {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.insights-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.insights-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.insights-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(240px, 0.7fr);
+  gap: 16px;
+  align-items: start;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.12), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(14, 116, 144, 0.12), transparent 35%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.95));
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.insights-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.insights-copy h3 {
+  font-size: 22px;
+}
+
+.insights-copy .muted {
+  max-width: 520px;
+}
+
+.insights-side {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
+.admin-latest-card {
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(140deg, #ffffff 0%, #eef2ff 100%);
+  box-shadow:
+    0 18px 36px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  display: grid;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.admin-latest-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 3px solid #1d4ed8;
+  opacity: 0.8;
+}
+
+.admin-latest-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.admin-latest-foot {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.scrape-progress {
+  display: grid;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.scrape-progress.is-hidden {
+  display: none;
+}
+
+.scrape-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #eef2f7;
+  overflow: hidden;
+}
+
+.scrape-progress-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0f172a, #1d4ed8, #0f766e);
+  transition: width 0.3s ease;
+}
+
+.scrape-progress-text {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .admin-editor {
@@ -1646,6 +1831,12 @@ a.pill {
   gap: 12px;
 }
 
+.admin-insight-card.coverage {
+  background: linear-gradient(180deg, #ffffff 0%, #f2f6fb 100%);
+  border-color: #d8e1ec;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
 .admin-insight-card.wide {
   grid-column: 1 / -1;
 }
@@ -1653,6 +1844,70 @@ a.pill {
 .admin-insight-title {
   font-weight: 700;
   font-size: 14px;
+}
+
+.admin-insight-kpi {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.admin-insight-body {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.9fr) minmax(0, 1.1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.admin-chart {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.admin-chart::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.admin-chart-center {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.admin-chart-value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.admin-chart-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+}
+
+.admin-chart.is-empty {
+  opacity: 0.6;
+}
+
+.admin-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
 }
 
 .admin-insight-list {
@@ -1666,6 +1921,9 @@ a.pill {
 }
 
 .admin-insight-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 13px;
 }
@@ -1785,12 +2043,49 @@ a.pill {
     grid-template-columns: 1fr;
   }
 
+  .insights-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-head {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-latest-card {
+    width: 100%;
+  }
+
+  .insights-side {
+    justify-items: stretch;
+  }
+
   .admin-toolbar {
     width: 100%;
   }
 
   .admin-toolbar input,
   .admin-toolbar button {
+    width: 100%;
+  }
+
+  .admin-insight-body {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .admin-insight-body .admin-insight-list {
+    width: 100%;
+    text-align: left;
+  }
+
+  .admin-chart {
+    width: 140px;
+    height: 140px;
+  }
+
+  .admin-page-info {
+    margin-left: 0;
     width: 100%;
   }
 

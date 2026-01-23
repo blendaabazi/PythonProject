@@ -49,6 +49,21 @@ class AdminInsightsResponse(BaseModel):
     system: AdminSystemSummary
 
 
+class AdminScrapeResponse(BaseModel):
+    status: str
+    message: str
+
+
+class AdminScrapeStatusResponse(BaseModel):
+    running: bool
+    total: int
+    completed: int
+    current_store: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+
+
 class AdminProductResponse(BaseModel):
     sku: str
     name: str

@@ -48,9 +48,6 @@ app.innerHTML = `
       <div class="auth-divider"><span>Already have an account?</span></div>
       <a class="auth-btn ghost" href="/login">Back to login</a>
 
-      <p class="auth-legal">
-        By creating an account you accept the terms. Login stores a JWT in a secure cookie.
-      </p>
     </section>
   </main>
 
@@ -63,15 +60,10 @@ app.innerHTML = `
 
 const registerForm = document.getElementById("registerForm");
     const statusEl = document.getElementById("authStatus");
-    const storageKey = "pc_user";
 
     function setStatus(text, isError = false) {
       statusEl.textContent = text || "";
       statusEl.className = isError ? "auth-status error" : "auth-status";
-    }
-
-    function saveUser(user) {
-      localStorage.setItem(storageKey, JSON.stringify(user));
     }
 
     async function postJson(url, payload) {
@@ -97,7 +89,6 @@ const registerForm = document.getElementById("registerForm");
 
     registerForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      setStatus("Creating account...");
       const formData = new FormData(registerForm);
       const password = String(formData.get("password") || "");
       const confirm = String(formData.get("confirm") || "");
@@ -111,9 +102,10 @@ const registerForm = document.getElementById("registerForm");
         password,
       };
       try {
-        const user = await postJson("/auth/register", payload);
-        saveUser(user);
-        setStatus("Account created. You can login now.");
+        await postJson("/auth/register", payload);
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 700);
       } catch (err) {
         setStatus(err.message || "Register failed", true);
       }

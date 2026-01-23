@@ -4,7 +4,7 @@ app.innerHTML = `
 
   <main class="auth-container auth-grid">
     <section class="auth-brand">
-      <div class="auth-logo">KS Price Compare</div>
+      <div class="auth-logo">Price Compare</div>
       <div class="auth-kicker">Price intelligence</div>
       <h1>Login to continue.</h1>
       <p class="auth-lede">
@@ -23,7 +23,7 @@ app.innerHTML = `
         <p>Sign in with your email and password.</p>
       </div>
 
-      <div id="authState" class="auth-state">Not logged in.</div>
+      <div id="authState" class="auth-state"></div>
 
       <form id="loginForm" class="auth-form">
         <label class="auth-field">
@@ -44,10 +44,6 @@ app.innerHTML = `
 
       <div id="authStatus" class="auth-status"></div>
       <button id="logoutBtn" class="auth-btn ghost" type="button">Log out</button>
-
-      <p class="auth-legal">
-        By continuing you agree to the terms. JWT is stored in a secure cookie for this demo.
-      </p>
     </section>
   </main>
 
@@ -86,6 +82,11 @@ const loginForm = document.getElementById("loginForm");
     const forgotCancel = document.getElementById("forgotCancel");
     const forgotStatus = document.getElementById("forgotStatus");
     const storageKey = "pc_user";
+    const params = new URLSearchParams(window.location.search);
+    const nextParam = params.get("next");
+    if (nextParam) {
+      localStorage.setItem("pc_next", nextParam);
+    }
 
     function setStatus(text, isError = false) {
       statusEl.textContent = text || "";
@@ -206,7 +207,6 @@ const loginForm = document.getElementById("loginForm");
 
     loginForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      setStatus("Logging in...");
       const formData = new FormData(loginForm);
       const payload = {
         email: String(formData.get("email") || ""),
@@ -220,7 +220,6 @@ const loginForm = document.getElementById("loginForm");
         delete safeUser.expires_in;
         saveUser(safeUser);
         applyPendingSave(safeUser);
-        setStatus("Login ok.");
         const next = localStorage.getItem("pc_next") || "/";
         localStorage.removeItem("pc_next");
         // Update saved count in navbar on redirect target by storing a hint.

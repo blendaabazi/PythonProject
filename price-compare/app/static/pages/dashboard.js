@@ -29,52 +29,50 @@ app.innerHTML = `
           <div class="stat-foot">Retail sources</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Prices</div>
-          <div class="stat-value" id="statPrices">-</div>
-          <div class="stat-foot">Total observations</div>
-        </div>
-        <div class="stat-card">
           <div class="stat-label">Users</div>
           <div class="stat-value" id="statUsers">-</div>
           <div class="stat-foot">Registered accounts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Latest price</div>
-          <div class="stat-value" id="statLatest">-</div>
-          <div class="stat-foot">Most recent update</div>
         </div>
       </div>
     </section>
 
     <section class="panel glass admin-panel" id="insightsPanel">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Insights</p>
-          <h3>Operational overview</h3>
-          <p class="muted">Live mix of catalog health, coverage, and recent price movement.</p>
-        </div>
-        <div class="admin-toolbar">
-          <span id="insightStatus" class="status"></span>
-          <button id="refreshInsightsBtn" class="ghost" type="button">Refresh</button>
-        </div>
-      </div>
-
-      <div class="admin-insights">
-        <div class="admin-insight-card">
-          <div class="admin-insight-title">Category mix</div>
-          <div id="categoryBreakdown" class="admin-insight-list">Loading...</div>
-        </div>
-        <div class="admin-insight-card">
+      <div class="insights-layout">
+        <div class="admin-insight-card coverage">
           <div class="admin-insight-title">Store coverage</div>
-          <div id="storeBreakdown" class="admin-insight-list">Loading...</div>
+          <div id="storeCoverageKpi" class="admin-insight-kpi">Loading...</div>
+          <div class="admin-insight-body">
+            <div id="storeChart" class="admin-chart"></div>
+            <div id="storeBreakdown" class="admin-insight-list">Loading...</div>
+          </div>
         </div>
-        <div class="admin-insight-card">
-          <div class="admin-insight-title">Scheduler</div>
-          <div id="systemSettings" class="admin-system-grid">Loading...</div>
-        </div>
-        <div class="admin-insight-card wide">
-          <div class="admin-insight-title">Recent price updates</div>
-          <div id="recentPrices" class="admin-timeline">Loading...</div>
+
+        <div class="insights-summary">
+          <div class="insights-head">
+            <div class="insights-copy">
+              <p class="eyebrow">Insights</p>
+              <h3>Operational overview</h3>
+            </div>
+            <div class="insights-side">
+            <div class="admin-toolbar">
+              <span id="insightStatus" class="status"></span>
+              <button id="runScrapeBtn" class="scrape-btn" type="button">Scrape products</button>
+              <span id="scrapeStatus" class="status status-right"></span>
+            </div>
+              <div class="admin-latest-card">
+                <div class="admin-latest-label">Latest price</div>
+                <div class="admin-latest-value stat-value" id="statLatest">-</div>
+                <div class="admin-latest-foot">Most recent update</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="scrapeProgress" class="scrape-progress is-hidden">
+            <div class="scrape-progress-bar">
+              <span id="scrapeProgressFill"></span>
+            </div>
+            <div id="scrapeProgressText" class="scrape-progress-text"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -141,6 +139,12 @@ app.innerHTML = `
         <span id="productStatus" class="status"></span>
       </div>
       <div id="productTable" class="admin-table products">Loading...</div>
+      <div class="admin-pagination" id="productPagination">
+        <button id="productPrevBtn" class="button-pill page-btn" type="button">Prev</button>
+        <div id="productPageList" class="admin-page-list"></div>
+        <button id="productNextBtn" class="button-pill page-btn" type="button">Next</button>
+        <div id="productPageInfo" class="admin-page-info"></div>
+      </div>
     </section>
 
     <section class="panel glass admin-panel" id="shopsPanel">
@@ -258,6 +262,16 @@ app.innerHTML = `
     </div>
   </div>
 
+  <div id="scrapeModal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-title">Scrape status</div>
+      <p id="scrapeModalMessage" class="auth-legal">Scrape finished.</p>
+      <div class="modal-actions">
+        <button id="scrapeModalOk" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="shell footer">
     <div>Admin dashboard</div>
     <div>Use admin credentials to manage catalog data.</div>
@@ -274,11 +288,14 @@ const statUsers = document.getElementById("statUsers");
 const statLatest = document.getElementById("statLatest");
 
 const insightStatus = document.getElementById("insightStatus");
-const refreshInsightsBtn = document.getElementById("refreshInsightsBtn");
-const categoryBreakdown = document.getElementById("categoryBreakdown");
+const runScrapeBtn = document.getElementById("runScrapeBtn");
+const scrapeStatus = document.getElementById("scrapeStatus");
+const scrapeProgress = document.getElementById("scrapeProgress");
+const scrapeProgressFill = document.getElementById("scrapeProgressFill");
+const scrapeProgressText = document.getElementById("scrapeProgressText");
+const storeChart = document.getElementById("storeChart");
+const storeCoverageKpi = document.getElementById("storeCoverageKpi");
 const storeBreakdown = document.getElementById("storeBreakdown");
-const systemSettings = document.getElementById("systemSettings");
-const recentPrices = document.getElementById("recentPrices");
 
 const productSearch = document.getElementById("productSearch");
 const productSearchBtn = document.getElementById("productSearchBtn");
@@ -297,6 +314,12 @@ const productCancelBtn = document.getElementById("productCancelBtn");
 const productMeta = document.getElementById("productMeta");
 const productStatus = document.getElementById("productStatus");
 const productTable = document.getElementById("productTable");
+const productsPanel = document.getElementById("productsPanel");
+const productPagination = document.getElementById("productPagination");
+const productPrevBtn = document.getElementById("productPrevBtn");
+const productNextBtn = document.getElementById("productNextBtn");
+const productPageList = document.getElementById("productPageList");
+const productPageInfo = document.getElementById("productPageInfo");
 
 const shopNewBtn = document.getElementById("shopNewBtn");
 const shopEditor = document.getElementById("shopEditor");
@@ -331,10 +354,28 @@ const confirmTitle = document.getElementById("confirmTitle");
 const confirmMessage = document.getElementById("confirmMessage");
 const confirmCancel = document.getElementById("confirmCancel");
 const confirmOk = document.getElementById("confirmOk");
+const scrapeModal = document.getElementById("scrapeModal");
+const scrapeModalMessage = document.getElementById("scrapeModalMessage");
+const scrapeModalOk = document.getElementById("scrapeModalOk");
+
+const CHART_COLORS = [
+  "#0f172a",
+  "#1d4ed8",
+  "#0f766e",
+  "#d97706",
+  "#16a34a",
+  "#0284c7",
+  "#f97316",
+  "#475569",
+];
+const PRODUCT_PAGE_SIZE = 20;
 
 const state = {
   products: [],
   productTotal: 0,
+  productPage: 1,
+  productPageSize: PRODUCT_PAGE_SIZE,
+  productQuery: "",
   shops: [],
   users: [],
   userTotal: 0,
@@ -344,6 +385,10 @@ const state = {
   confirmAction: null,
   locked: false,
 };
+
+let scrapePollTimer = null;
+let scrapeHideTimer = null;
+let scrapeWasRunning = false;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -387,11 +432,98 @@ function formatPrice(value, currency) {
   }
 }
 
+function parseTimestamp(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "number") return new Date(value);
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/[zZ]$|[+-]\d{2}:?\d{2}$/.test(text)) {
+    return new Date(text);
+  }
+  if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+    return new Date(`${text}Z`);
+  }
+  return new Date(text);
+}
+
 function formatTimestamp(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString();
+  const date = parseTimestamp(value);
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("en-GB", { hour12: false });
+}
+
+function formatTimestampParts(value) {
+  const date = parseTimestamp(value);
+  if (!date || Number.isNaN(date.getTime())) return null;
+  return {
+    date: date.toLocaleDateString("en-GB"),
+    time: date.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }),
+  };
+}
+
+function isUnknownValue(value) {
+  if (value === null || value === undefined) return true;
+  const normalized = String(value).trim().toLowerCase();
+  return (
+    normalized === "" ||
+    normalized === "unknown" ||
+    normalized === "n/a" ||
+    normalized === "na" ||
+    normalized === "none" ||
+    normalized === "null" ||
+    normalized === "undefined"
+  );
+}
+
+function filterKnown(items, valueFn) {
+  return (items || []).filter((item) => !isUnknownValue(valueFn(item)));
+}
+
+function getChartColor(index) {
+  return CHART_COLORS[index % CHART_COLORS.length];
+}
+
+function renderDonutChart(target, items, totalLabel, totalOverride = null) {
+  if (!target) return;
+  const validItems = (items || []).filter((item) => (Number(item.count) || 0) > 0);
+  const total = validItems.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+  const displayTotal =
+    totalOverride === null || totalOverride === undefined ? total : Number(totalOverride) || 0;
+  if (!validItems.length || total <= 0) {
+    target.style.background = "conic-gradient(#e2e8f0 0deg, #e2e8f0 360deg)";
+    target.innerHTML = `
+      <div class="admin-chart-center">
+        <div class="admin-chart-value">-</div>
+        <div class="admin-chart-label">${escapeHtml(totalLabel)}</div>
+      </div>
+    `;
+    target.classList.add("is-empty");
+    return;
+  }
+  let start = 0;
+  const segments = validItems.map((item, index) => {
+    const count = Number(item.count) || 0;
+    const pct = count / total;
+    const end = start + pct * 360;
+    const color = getChartColor(index);
+    const segment = `${color} ${start}deg ${end}deg`;
+    start = end;
+    return segment;
+  });
+  target.style.background = `conic-gradient(${segments.join(", ")})`;
+  target.innerHTML = `
+    <div class="admin-chart-center">
+      <div class="admin-chart-value">${escapeHtml(String(displayTotal))}</div>
+      <div class="admin-chart-label">${escapeHtml(totalLabel)}</div>
+    </div>
+  `;
+  target.classList.remove("is-empty");
 }
 
 function setStatus(target, message, isError = false) {
@@ -440,6 +572,7 @@ function handleAuthError(error) {
     setStatus(shopStatus, "Access denied.", true);
     setStatus(userStatus, "Access denied.", true);
     setStatus(insightStatus, "Access denied.", true);
+    setStatus(scrapeStatus, "Access denied.", true);
     return true;
   }
   return false;
@@ -475,92 +608,51 @@ async function apiRequest(path, options = {}) {
 function renderStats(stats) {
   statProducts.textContent = stats ? String(stats.product_count) : "-";
   statShops.textContent = stats ? String(stats.shop_count) : "-";
-  statPrices.textContent = stats ? String(stats.price_count) : "-";
+  if (statPrices) {
+    statPrices.textContent = stats ? String(stats.price_count) : "-";
+  }
   statUsers.textContent = stats ? String(stats.user_count) : "-";
-  statLatest.textContent = stats ? formatTimestamp(stats.latest_price_at) : "-";
+  if (stats && stats.latest_price_at) {
+    const parts = formatTimestampParts(stats.latest_price_at);
+    if (parts) {
+      statLatest.innerHTML = `
+        <span class="stat-date">${escapeHtml(parts.date)}</span>
+        <span class="stat-time">${escapeHtml(parts.time)}</span>
+      `;
+    } else {
+      statLatest.textContent = "-";
+    }
+  } else {
+    statLatest.textContent = "-";
+  }
 }
 
-function renderBreakdown(target, items, labelFn, metaFn) {
+function renderBreakdown(target, items, labelFn, metaFn, colorFn, barWidthFn) {
   if (!items || !items.length) {
     target.innerHTML = "<div class=\"admin-empty\">No data yet.</div>";
     return;
   }
   const total = items.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
   target.innerHTML = items
-    .map((item) => {
+    .map((item, index) => {
       const count = Number(item.count) || 0;
       const pct = total ? Math.round((count / total) * 100) : 0;
+      const barPctRaw = barWidthFn ? barWidthFn(item, pct, total) : pct;
+      const barPct = Math.min(100, Math.max(0, Number(barPctRaw) || 0));
       const label = labelFn(item);
       const meta = metaFn(item, pct);
+      const color = colorFn ? colorFn(item, index) : "";
+      const swatch = color
+        ? `<span class="admin-swatch" style="background: ${color};"></span>`
+        : "";
       return `
         <div class="admin-insight-row">
           <div>
-            <div class="admin-insight-label">${escapeHtml(label)}</div>
+            <div class="admin-insight-label">${swatch}${escapeHtml(label)}</div>
             <div class="admin-insight-meta">${escapeHtml(meta)}</div>
           </div>
           <div class="admin-bar">
-            <span class="admin-bar-fill" style="width: ${pct}%;"></span>
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-}
-
-function renderSystem(system) {
-  if (!system) {
-    systemSettings.innerHTML = "<div class=\"admin-empty\">No system data.</div>";
-    return;
-  }
-  systemSettings.innerHTML = `
-    <div class="admin-system-item">
-      <span>Interval</span>
-      <strong>${escapeHtml(`${system.scrape_interval_min} min`)}</strong>
-    </div>
-    <div class="admin-system-item">
-      <span>On startup</span>
-      <strong>${system.scrape_on_startup ? "Enabled" : "Disabled"}</strong>
-    </div>
-    <div class="admin-system-item">
-      <span>Timeout</span>
-      <strong>${escapeHtml(`${system.scrape_timeout_sec}s`)}</strong>
-    </div>
-    <div class="admin-system-item">
-      <span>Retries</span>
-      <strong>${escapeHtml(String(system.scrape_retries))}</strong>
-    </div>
-    <div class="admin-system-item">
-      <span>Backoff</span>
-      <strong>${escapeHtml(`${system.scrape_backoff_sec}s`)}</strong>
-    </div>
-    <div class="admin-system-item">
-      <span>Delay</span>
-      <strong>${escapeHtml(`${system.scrape_delay_sec}s`)}</strong>
-    </div>
-  `;
-}
-
-function renderRecentPrices(items) {
-  if (!items || !items.length) {
-    recentPrices.innerHTML = "<div class=\"admin-empty\">No recent price updates.</div>";
-    return;
-  }
-  recentPrices.innerHTML = items
-    .map((item) => {
-      const name = item.name || item.sku || "Unknown SKU";
-      const stockLabel = item.in_stock ? "In stock" : "Out of stock";
-      const stockClass = item.in_stock ? "in" : "out";
-      return `
-        <div class="admin-timeline-item">
-          <div>
-            <div class="admin-timeline-title">${escapeHtml(name)}</div>
-            <div class="admin-timeline-meta">
-              ${escapeHtml(displayStore(item.store))} - ${escapeHtml(formatTimestamp(item.timestamp))}
-            </div>
-          </div>
-          <div class="admin-timeline-right">
-            <div class="admin-timeline-price">${escapeHtml(formatPrice(item.price, item.currency))}</div>
-            <div class="admin-stock ${stockClass}">${stockLabel}</div>
+            <span class="admin-bar-fill" style="width: ${barPct}%;"></span>
           </div>
         </div>
       `;
@@ -569,23 +661,186 @@ function renderRecentPrices(items) {
 }
 
 function renderInsights(data) {
-  renderBreakdown(
-    categoryBreakdown,
-    data && data.products_by_category ? data.products_by_category : [],
-    (item) => String(item.category || "unknown").replace(/-/g, " "),
-    (item, pct) => `${item.count} items - ${pct}%`
-  );
+  const storeItems = filterKnown(
+    data && data.prices_by_store ? data.prices_by_store : [],
+    (item) => item.store
+  ).filter((item) => (Number(item.count) || 0) > 0);
+  if (storeCoverageKpi) {
+    const totalPrices = storeItems.reduce((sum, item) => sum + (Number(item.count) || 0), 0);
+    storeCoverageKpi.textContent = storeItems.length
+      ? `Active stores: ${storeItems.length} | Prices: ${totalPrices}`
+      : "No coverage data yet.";
+  }
+  renderDonutChart(storeChart, storeItems, "Stores", storeItems.length);
   renderBreakdown(
     storeBreakdown,
-    data && data.prices_by_store ? data.prices_by_store : [],
+    storeItems,
     (item) => displayStore(item.store),
     (item) => {
       const latest = item.latest_price_at ? `Latest ${formatTimestamp(item.latest_price_at)}` : "No updates yet";
       return `${item.count} prices - ${latest}`;
-    }
+    },
+    (item, index) => getChartColor(index),
+    () => 100
   );
-  renderSystem(data ? data.system : null);
-  renderRecentPrices(data ? data.recent_prices : []);
+}
+
+function updateScrapeUI(status) {
+  if (!scrapeProgress || !scrapeProgressFill || !scrapeProgressText) return;
+  const running = Boolean(status && status.running);
+  const total = Number(status && status.total) || 0;
+  const completed = Number(status && status.completed) || 0;
+  const percent = total ? Math.min(100, Math.round((completed / total) * 100)) : running ? 8 : 0;
+  scrapeProgressFill.style.width = `${percent}%`;
+
+  if (running) {
+    scrapeWasRunning = true;
+    if (scrapeHideTimer) {
+      clearTimeout(scrapeHideTimer);
+      scrapeHideTimer = null;
+    }
+    const store = status && status.current_store ? displayStore(status.current_store) : "Starting";
+    scrapeProgressText.textContent = total
+      ? `Scraping ${store} (${completed}/${total})`
+      : "Scraping...";
+    scrapeProgress.classList.remove("is-hidden");
+    setStatus(scrapeStatus);
+    if (runScrapeBtn) runScrapeBtn.disabled = true;
+    return;
+  }
+
+  if (status && status.started_at) {
+    const finishText = status.finished_at ? formatTimestamp(status.finished_at) : "just now";
+    const hasError = Boolean(status.last_error);
+    const errorText = hasError ? "Scrape finished with errors." : "Scrape completed.";
+    scrapeProgressText.textContent =
+      finishText === "just now" ? `${errorText} Finished just now.` : `${errorText} Finished ${finishText}.`;
+    scrapeProgressFill.style.width = "100%";
+    scrapeProgress.classList.remove("is-hidden");
+    if (hasError) {
+      setStatus(scrapeStatus, "Scrape finished with errors.", true);
+    } else {
+      setStatus(scrapeStatus, "");
+    }
+    if (scrapeWasRunning) {
+      const modalMessage = hasError
+        ? "Scrape finished with errors."
+        : "Scrape completed successfully.";
+      openScrapeModal(modalMessage);
+      scrapeWasRunning = false;
+    }
+    if (!scrapeHideTimer) {
+      scrapeHideTimer = setTimeout(() => {
+        scrapeProgress.classList.add("is-hidden");
+        scrapeHideTimer = null;
+      }, 5000);
+    }
+  } else {
+    scrapeProgress.classList.add("is-hidden");
+  }
+
+  if (runScrapeBtn) runScrapeBtn.disabled = false;
+}
+
+function stopScrapePolling() {
+  if (scrapePollTimer) {
+    clearInterval(scrapePollTimer);
+    scrapePollTimer = null;
+  }
+}
+
+async function pollScrapeStatus() {
+  try {
+    const status = await apiRequest("/admin/scrape/status");
+    updateScrapeUI(status);
+    if (!status || !status.running) {
+      stopScrapePolling();
+    }
+  } catch (err) {
+    if (!handleAuthError(err)) {
+      setStatus(scrapeStatus, err.message || "Failed to load scrape status", true);
+    }
+    stopScrapePolling();
+  }
+}
+
+function startScrapePolling() {
+  stopScrapePolling();
+  scrapePollTimer = setInterval(pollScrapeStatus, 2000);
+  pollScrapeStatus();
+}
+
+async function loadScrapeStatus() {
+  try {
+    const status = await apiRequest("/admin/scrape/status");
+    updateScrapeUI(status);
+    if (status && status.running) {
+      startScrapePolling();
+    }
+  } catch (err) {
+    if (!handleAuthError(err)) {
+      setStatus(scrapeStatus, err.message || "Failed to load scrape status", true);
+    }
+  }
+}
+
+function getProductPageCount() {
+  if (!state.productTotal) return 1;
+  return Math.max(1, Math.ceil(state.productTotal / state.productPageSize));
+}
+
+function buildPageRange(current, total) {
+  const pages = [];
+  if (total <= 7) {
+    for (let i = 1; i <= total; i += 1) {
+      pages.push(i);
+    }
+    return pages;
+  }
+  pages.push(1);
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) {
+    pages.push("...");
+  }
+  for (let i = start; i <= end; i += 1) {
+    pages.push(i);
+  }
+  if (end < total - 1) {
+    pages.push("...");
+  }
+  pages.push(total);
+  return pages;
+}
+
+function renderProductPagination() {
+  if (!productPagination || !productPageList || !productPageInfo) return;
+  const totalPages = getProductPageCount();
+  const shouldHide = totalPages <= 1 && state.productTotal <= state.productPageSize;
+  productPagination.classList.toggle("is-hidden", shouldHide);
+  if (productPrevBtn) productPrevBtn.disabled = state.productPage <= 1;
+  if (productNextBtn) productNextBtn.disabled = state.productPage >= totalPages;
+  productPageInfo.textContent = `Page ${state.productPage} of ${totalPages}`;
+  const pages = buildPageRange(state.productPage, totalPages);
+  productPageList.innerHTML = pages
+    .map((page) => {
+      if (page === "...") {
+        return "<span class=\"page-ellipsis\">...</span>";
+      }
+      const isActive = page === state.productPage;
+      const activeClass = isActive ? " is-active" : "";
+      return `
+        <button class="button-pill page-btn${activeClass}" type="button" data-page="${page}">
+          ${page}
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function scrollToProductsPanel() {
+  if (!productsPanel) return;
+  productsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderProducts() {
@@ -798,6 +1053,17 @@ function closeConfirm() {
   state.confirmAction = null;
 }
 
+function openScrapeModal(message) {
+  if (!scrapeModal || !scrapeModalMessage) return;
+  scrapeModalMessage.textContent = message;
+  scrapeModal.classList.add("is-open");
+}
+
+function closeScrapeModal() {
+  if (!scrapeModal) return;
+  scrapeModal.classList.remove("is-open");
+}
+
 async function loadStats() {
   try {
     const stats = await apiRequest("/admin/stats");
@@ -819,25 +1085,47 @@ async function loadInsights() {
   } catch (err) {
     if (!handleAuthError(err)) {
       setStatus(insightStatus, err.message || "Failed to load insights", true);
-      categoryBreakdown.innerHTML = "<div class=\"admin-empty\">Failed to load insights.</div>";
       storeBreakdown.innerHTML = "<div class=\"admin-empty\">Failed to load insights.</div>";
-      systemSettings.innerHTML = "<div class=\"admin-empty\">Failed to load insights.</div>";
-      recentPrices.innerHTML = "<div class=\"admin-empty\">Failed to load insights.</div>";
+      if (storeCoverageKpi) {
+        storeCoverageKpi.textContent = "Coverage data unavailable.";
+      }
     }
   }
 }
 
-async function loadProducts(query = "") {
+async function loadProducts(query = state.productQuery, page = state.productPage) {
   setStatus(productStatus, "Loading...");
+  const normalizedQuery = String(query || "").trim();
+  const targetPage = Math.max(1, Number(page) || 1);
+  state.productQuery = normalizedQuery;
+  state.productPage = targetPage;
+  const offset = (state.productPage - 1) * state.productPageSize;
+  const params = new URLSearchParams({
+    limit: String(state.productPageSize),
+    offset: String(offset),
+  });
+  if (normalizedQuery) {
+    params.set("q", normalizedQuery);
+  }
   try {
-    const response = await apiRequest(
-      `/admin/products?q=${encodeURIComponent(query)}&limit=50&offset=0`
-    );
+    const response = await apiRequest(`/admin/products?${params.toString()}`);
     state.products = Array.isArray(response.items) ? response.items : [];
-    state.productTotal = Number(response.total) || state.products.length;
-    productMeta.textContent = `Showing ${state.products.length} of ${state.productTotal}`;
+    state.productTotal = Number(response.total) || 0;
+    const totalPages = getProductPageCount();
+    if (state.productTotal > 0 && state.productPage > totalPages) {
+      await loadProducts(state.productQuery, totalPages);
+      return;
+    }
+    if (state.productTotal > 0) {
+      const start = offset + 1;
+      const end = offset + state.products.length;
+      productMeta.textContent = `Showing ${start}-${end} of ${state.productTotal}`;
+    } else {
+      productMeta.textContent = "No products found.";
+    }
     setStatus(productStatus, "");
     renderProducts();
+    renderProductPagination();
   } catch (err) {
     if (!handleAuthError(err)) {
       setStatus(productStatus, err.message || "Failed to load products", true);
@@ -881,6 +1169,27 @@ async function loadUsers(query = "") {
   }
 }
 
+async function runScrape() {
+  if (state.locked || !runScrapeBtn) return;
+  runScrapeBtn.disabled = true;
+  setStatus(scrapeStatus, "Starting scrape...");
+  try {
+    const response = await apiRequest("/admin/scrape", { method: "POST" });
+    if (response && response.status === "running") {
+      setStatus(scrapeStatus, response.message || "Scrape already running.");
+    } else {
+      setStatus(scrapeStatus, response.message || "Scrape started.");
+    }
+    startScrapePolling();
+  } catch (err) {
+    if (!handleAuthError(err)) {
+      setStatus(scrapeStatus, err.message || "Scrape failed", true);
+    }
+  } finally {
+    runScrapeBtn.disabled = false;
+  }
+}
+
 async function handleProductSave(event) {
   event.preventDefault();
   if (state.locked) return;
@@ -915,7 +1224,7 @@ async function handleProductSave(event) {
       setStatus(productStatus, "Product created.");
     }
     closeProductEditor();
-    await loadProducts(productSearch.value.trim());
+    await loadProducts(state.productQuery, state.productPage);
     await loadStats();
   } catch (err) {
     if (!handleAuthError(err)) {
@@ -1016,13 +1325,13 @@ async function handleUserSave(event) {
 }
 
 productSearchBtn.addEventListener("click", () => {
-  loadProducts(productSearch.value.trim());
+  loadProducts(productSearch.value.trim(), 1);
 });
 
 productSearch.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    loadProducts(productSearch.value.trim());
+    loadProducts(productSearch.value.trim(), 1);
   }
 });
 
@@ -1036,9 +1345,39 @@ productCancelBtn.addEventListener("click", () => {
 
 productForm.addEventListener("submit", handleProductSave);
 
-if (refreshInsightsBtn) {
-  refreshInsightsBtn.addEventListener("click", () => {
-    loadInsights();
+if (productPrevBtn) {
+  productPrevBtn.addEventListener("click", () => {
+    if (state.productPage > 1) {
+      loadProducts(state.productQuery, state.productPage - 1);
+      scrollToProductsPanel();
+    }
+  });
+}
+
+if (productNextBtn) {
+  productNextBtn.addEventListener("click", () => {
+    const totalPages = getProductPageCount();
+    if (state.productPage < totalPages) {
+      loadProducts(state.productQuery, state.productPage + 1);
+      scrollToProductsPanel();
+    }
+  });
+}
+
+if (productPagination) {
+  productPagination.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-page]");
+    if (!button) return;
+    const page = Number(button.dataset.page);
+    if (!Number.isFinite(page) || page === state.productPage) return;
+    loadProducts(state.productQuery, page);
+    scrollToProductsPanel();
+  });
+}
+
+if (runScrapeBtn) {
+  runScrapeBtn.addEventListener("click", () => {
+    runScrape();
   });
 }
 
@@ -1063,7 +1402,7 @@ productTable.addEventListener("click", (event) => {
             method: "DELETE",
           });
           setStatus(productStatus, "Product deleted.");
-          await loadProducts(productSearch.value.trim());
+          await loadProducts(state.productQuery, state.productPage);
           await loadStats();
         } catch (err) {
           if (!handleAuthError(err)) {
@@ -1187,6 +1526,18 @@ confirmModal.addEventListener("click", (event) => {
   }
 });
 
+if (scrapeModalOk) {
+  scrapeModalOk.addEventListener("click", closeScrapeModal);
+}
+
+if (scrapeModal) {
+  scrapeModal.addEventListener("click", (event) => {
+    if (event.target === scrapeModal) {
+      closeScrapeModal();
+    }
+  });
+}
+
 const storedUser = loadStoredUser();
 if (storedUser) {
   syncHeader(storedUser);
@@ -1207,6 +1558,7 @@ if (window.HeaderUI && window.HeaderUI.refresh) {
 
 loadStats();
 loadInsights();
+loadScrapeStatus();
 loadProducts();
 loadShops();
 loadUsers();
