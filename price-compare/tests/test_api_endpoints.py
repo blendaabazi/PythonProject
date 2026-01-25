@@ -28,11 +28,27 @@ class InMemoryProductRepo(ProductRepository):
     def get_by_sku(self, sku: str) -> Optional[Product]:
         return self.data.get(sku)
 
-    def search(self, query: Optional[str] = None) -> List[Product]:
-        if query is None:
-            return list(self.data.values())
-        needle = query.lower()
-        return [p for p in self.data.values() if needle in p.name.lower()]
+    def search(
+        self,
+        query: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[Product]:
+        items = list(self.data.values())
+        if query is not None:
+            needle = query.lower()
+            items = [p for p in items if needle in p.name.lower()]
+        offset = max(offset, 0)
+        items = items[offset:]
+        if limit is not None:
+            items = items[:limit]
+        return items
+
+    def count(self, query: Optional[str] = None) -> int:
+        return len(self.search(query))
+
+    def delete(self, sku: str) -> bool:
+        return self.data.pop(sku, None) is not None
 
 
 class InMemoryShopRepo(ShopRepository):
@@ -48,6 +64,12 @@ class InMemoryShopRepo(ShopRepository):
 
     def get_by_code(self, code: str) -> Optional[Shop]:
         return self.data.get(code)
+
+    def count(self) -> int:
+        return len(self.data)
+
+    def delete(self, code: str) -> bool:
+        return self.data.pop(code, None) is not None
 
 
 class InMemoryPriceRepo(PriceRepository):
@@ -98,6 +120,28 @@ class InMemoryPriceRepo(PriceRepository):
         for sku in product_skus:
             result[sku] = self.latest_for_product(sku)
         return result
+
+    def count(self) -> int:
+        return len(self.data)
+
+    def latest_timestamp(self) -> Optional[datetime]:
+        if not self.data:
+            return None
+        return max(price.timestamp for price in self.data)
+
+    def delete_for_product(self, product_sku: str) -> int:
+        before = len(self.data)
+        self.data = [price for price in self.data if price.product_sku != product_sku]
+        return before - len(self.data)
+
+    def delete_for_store(self, store_code: str) -> int:
+        before = len(self.data)
+        self.data = [
+            price
+            for price in self.data
+            if getattr(price.store, "value", price.store) != store_code
+        ]
+        return before - len(self.data)
 
 
 @pytest.fixture()
