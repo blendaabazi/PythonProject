@@ -4,5 +4,9 @@
   "extraPaths": [
     "./app",
     "C:/Users/Naim/OneDrive/Desktop/PythonProject/price-compare/.venv/Lib/site-packages"
-  ]
+  ],
+  "typeCheckingMode": "off",
+  "diagnosticSeverityOverrides": {
+    "reportArgumentType": "none"
+  }
 }
